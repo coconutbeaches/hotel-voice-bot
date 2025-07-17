@@ -5,9 +5,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "pnpm -r run build",
+    "build": "npm run build:npm || (pnpm --filter @hotel-voice-bot/shared run build && pnpm --filter @hotel-voice-bot/integrations run build && pnpm --filter @hotel-voice-bot/api run build)",
+    "build:npm": "./build.sh",
     "dev": "pnpm -r run dev",
-    "start": "pnpm --filter @hotel-voice-bot/api run start",
+    "start": "cd packages/api && npm start",
     "test": "pnpm -r run test",
     "lint": "pnpm -r run lint",
     "lint:fix": "pnpm -r run lint:fix",
@@ -18,7 +19,7 @@
     "clean": "pnpm -r run clean",
     "typecheck": "pnpm -r run typecheck",
     "docs:touch": "tsx scripts/update-doc-timestamps.ts",
-    "prepare": "husky install"
+    "prepare": "command -v husky >/dev/null && husky install || echo 'Husky not found, skipping'"
   },
   "keywords": [
     "hotel",
@@ -53,8 +54,9 @@
     "typescript": "^5.8.3"
   },
   "engines": {
-    "node": ">=18.0.0",
-    "pnpm": ">=8.0.0"
+    "node": ">=18.0.0"
   },
-  "packageManager": "pnpm@8.15.6"
+  "workspaces": [
+    "packages/*"
+  ]
 }
