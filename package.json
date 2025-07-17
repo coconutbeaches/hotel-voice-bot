@@ -5,7 +5,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "pnpm -r run build",
+    "build": "pnpm -r --filter='!@hotel-voice-bot/scripts' run build",
     "dev": "pnpm -r run dev",
     "start": "pnpm --filter @hotel-voice-bot/api run start",
     "test": "pnpm -r run test",
