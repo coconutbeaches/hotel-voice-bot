@@ -1,7 +1,14 @@
 import { wahaClient } from '../services/whatsapp/wahaClient.js';
 import { logger } from '../utils/logger.js';
+import { WAHAClientStub } from '../services/whatsapp/wahaClientStub.js';
 
 async function setupWaha() {
+  // Check if WAHA client is available (not a stub)
+  if (!wahaClient || wahaClient instanceof WAHAClientStub) {
+    logger.warn('[WAHA] Skipping WAHA setup: WAHA client not available or using stub');
+    return;
+  }
+
   try {
     logger.info('Setting up WAHA session...');
 
@@ -47,12 +54,13 @@ async function setupWaha() {
 
     if (retries >= maxRetries) {
       logger.error('Timeout waiting for WAHA session to be ready');
-      process.exit(1);
+      // Don't exit, just log the error
     }
 
   } catch (error) {
     logger.error('Failed to setup WAHA session:', error);
-    process.exit(1);
+    // Don't exit, allow the app to continue without WAHA
+    logger.warn('[WAHA] Continuing without WAHA integration');
   }
 }
 

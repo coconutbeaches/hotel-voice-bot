@@ -431,5 +431,30 @@ export class WAHAClient {
   }
 }
 
-export const wahaClient = new WAHAClient();
+import { WAHAClientStub } from './wahaClientStub.js';
+
+let wahaClient: WAHAClient | WAHAClientStub;
+
+try {
+  console.log('🔍 Attempting to initialize WAHAClient...');
+  console.log('Available ENV keys:', Object.keys(process.env).filter(key => key.startsWith('WAHA') || key === 'NODE_ENV'));
+  
+  // Check if we should use stub mode
+  const useStub = process.env.WAHA_USE_STUB === 'true' || process.env.NODE_ENV === 'development';
+  
+  if (useStub) {
+    console.log('📌 Using WAHAClientStub for development');
+    wahaClient = new WAHAClientStub();
+  } else {
+    wahaClient = new WAHAClient();
+    console.log('✅ WAHAClient initialized successfully - Real client used in production');
+  }
+} catch (err) {
+  console.error('❌ WAHAClient init failed:', err instanceof Error ? err.message : String(err));
+  console.error('⚠️ Falling back to WAHAClientStub');
+  // Fallback to stub instead of crashing
+  wahaClient = new WAHAClientStub();
+}
+
+export { wahaClient };
 

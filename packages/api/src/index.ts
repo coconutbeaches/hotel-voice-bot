@@ -42,7 +42,11 @@ app.use('/api/whatsapp', whatsappRouter);
 app.use(errorHandler);
 
 app.listen(PORT, () => {
-  setupWaha();
+  // Make WAHA setup non-blocking
+  setupWaha().catch(error => {
+    logger.error('WAHA setup failed but server continues', error);
+  });
+  
   logger.info(`Server running on port ${PORT}`);
   logger.info(
     `API documentation available at http://localhost:${PORT}/api-docs`
