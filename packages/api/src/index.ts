@@ -7,6 +7,7 @@ import swaggerUi from 'swagger-ui-express';
 
 import { errorHandler } from './middleware/errorHandler.js';
 import healthRouter from './routes/health.js';
+import transcribeRouter from './routes/transcribe.js';
 import voiceRouter from './routes/voice.js';
 import { setupVoiceSocket } from './routes/voiceSocket.js';
 import whatsappRouter from './routes/whatsapp.js';
@@ -47,6 +48,9 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use('/api/health', healthRouter);
 app.use('/api/voice', voiceRouter);
 app.use('/api/whatsapp', whatsappRouter);
+
+// Additional Routes
+app.use('/api/transcribe', transcribeRouter);
 
 // Error handling
 app.use(errorHandler);
