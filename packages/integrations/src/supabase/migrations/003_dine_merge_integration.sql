@@ -1,3 +1,5 @@
+-- Last Updated: 2025-07-17
+
 -- Migration for integrating with Dine Merge Mobile Order app
 -- This migration creates tables and relationships for restaurant ordering functionality
 

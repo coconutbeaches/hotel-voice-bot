@@ -1,112 +1,6 @@
-# Hotel Voice Bot Integrations
-
-## Overview
-
-This module manages integrations for the Hotel Voice Bot, including interfacing with external PMS and APIs for room service and payments.
-
-## Features
-- PMS Integration: Availability, Booking Creation, Guest Folio
-- Room Service/Order API Integration
-- Payment Gateway for Upsells
-- Caching Mechanisms
-- Circuit-Breaker Pattern
-- Monitoring and Logging
-
-## Configuration
-
-### Environment Variables
-- `SUPABASE_URL`: URL for Supabase instance
-- `SUPABASE_ANON_KEY`: Supabase anonymous key
-- `OPENAI_API_KEY`: API key for OpenAI
-
-### PMS Configuration
-- `baseUrl`: Base URL for PMS API
-- `apiKey`: API key for accessing PMS
-- `timeout`: Request timeout in ms
-- `retryAttempts`: Number of retry attempts for failed requests
-
-### Circuit Breaker Configuration
-- `failureThreshold`: Number of failures to trigger open state
-- `recoveryTimeout`: Time to wait before retrying in half-open state
-
-## Usage
-
-### PMS Service
-```typescript
-import { PMSService, PMSConfig } from './src/pms/pms-service.js';
-import { cacheManager } from './src/core/cache-manager.js';
-
-const config: PMSConfig = {
-  baseUrl: 'https://example.com/api',
-  apiKey: 'your-api-key',
-  timeout: 5000,
-  retryAttempts: 3,
-  circuitBreaker: {
-    failureThreshold: 3,
-    recoveryTimeout: 3000,
-    monitoringPeriod: 60000,
-    halfOpenMaxCalls: 2,
-    timeout: 1000,
-  },
-};
-
-const pmsService = new PMSService(config, cacheManager);
-
-pmsService.getAvailability('Suite', '2025-08-01', '2025-08-02')
-  .then(response => console.log('Availability:', response))
-  .catch(error => console.error('Error fetching availability:', error));
-```
-
-### Monitoring and Logging
-
-Logging and monitoring are extensively used in all integration calls via the `IntegrationLogger` and `MonitoringMiddleware`. Logs include details about API calls, circuit breaker states, cache hits/misses, and performance metrics.
-
-#### Logging API Calls
-```typescript
-integrationLogger.logApiCall(
-  'pmsService',
-  'getAvailability',
-  'GET',
-  '/availability',
-  200,
-  150,
-);
-```
-
-This logs API calls, capturing HTTP method, endpoint, response status code, and duration.
-
-#### Monitoring
-
-- **API Metrics**: Collects duration and status for each API call.
-- **Circuit Breaker**: Logs state transitions and tracks failure counts.
-- **Cache Events**: Logs cache hits, misses, and invalidations.
-
-```
-logging:
-  level: info # Logging level
-  console: true # Log to console
-  files: # File-based logging paths
-    - integration-errors.log
-    - integration-combined.log
-metrics:
-  enabled: true
-  flushPeriod: 60s
-```
-
-### Running Tests
-
-Tests are implemented using Jest for unit testing of core functionalities and integration with external services. Mocking is used where appropriate to mimic external dependencies.
-
-To execute tests, run:
-```bash
-npm test
-```
-
-## Contribution
-
-Please contribute by forking the repository and making a Pull Request. Ensure all new code paths are covered by tests.
 
 # Hotel Voice Bot
+<!-- Last Updated: 2025-07-17 -->
 
 AI-powered hotel voice bot with WhatsApp integration built with Node.js, TypeScript, and OpenAI.
 
@@ -221,7 +115,103 @@ The project includes GitHub Actions for automated deployment to AWS ECS. Configu
 
 ## Environment Variables
 
-See `.env.example` for required environment variables.
+### Core Configuration
+
+- `NODE_ENV` - Environment (development/production)
+- `PORT` - Server port (default: 3000)
+- `LOG_LEVEL` - Logging level (debug/info/warn/error)
+
+### Database Configuration
+
+- `DATABASE_URL` - PostgreSQL connection string
+- `SUPABASE_URL` - Supabase project URL
+- `SUPABASE_ANON_KEY` - Supabase anonymous key
+- `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key (for admin operations)
+
+### OpenAI Configuration
+
+- `OPENAI_API_KEY` - OpenAI API key for LLM processing
+- `OPENAI_MODEL` - Model to use (default: gpt-4-turbo-preview)
+
+### WhatsApp Configuration (WAHA)
+
+- `WAHA_API_URL` - WAHA API endpoint
+- `WAHA_API_KEY` - WAHA API key
+- `WAHA_SESSION_NAME` - WhatsApp session name
+- `WAHA_WEBHOOK_URL` - Public webhook URL for receiving messages
+- `WAHA_WEBHOOK_TOKEN` - Token for webhook verification
+
+### AWS Configuration
+
+- `AWS_REGION` - AWS region
+- `AWS_ACCESS_KEY_ID` - AWS access key
+- `AWS_SECRET_ACCESS_KEY` - AWS secret key
+
+### Security
+
+- `JWT_SECRET` - JWT signing secret
+- `ENCRYPTION_KEY` - Encryption key for sensitive data
+
+### External Services
+
+- `HOTEL_MANAGEMENT_API_URL` - Hotel PMS API endpoint
+- `HOTEL_MANAGEMENT_API_KEY` - Hotel PMS API key
+
+See `.env.example` for the complete environment configuration template.
+
+## API Documentation
+
+API documentation is automatically generated using OpenAPI 3.0 specification and available at:
+- Development: http://localhost:3000/api-docs
+- Production: https://your-domain.com/api-docs
+
+## Runbooks
+
+Operational runbooks are available in the `/docs/runbooks/` directory:
+- [Deployment Runbook](docs/runbooks/deployment.md)
+- [Rollback Runbook](docs/runbooks/rollback.md)
+- [Hot-patch Runbook](docs/runbooks/hot-patch.md)
+- [Monitoring and Alerting](docs/runbooks/monitoring.md)
+
+## Conversation Design Guide
+
+For marketing and customer service teams to update conversation prompts and FAQs:
+- [Conversation Design Guide](docs/conversation-design-guide.md)
+
+## Database Schema
+
+### Bot-specific Tables (Additive)
+
+The following tables are added to support the voice bot without modifying existing hotel/restaurant data:
+
+#### bot_messages
+Stores all bot conversation messages with guest users.
+
+#### escalations
+Tracks when conversations are escalated to human agents.
+
+#### faqs
+Manages frequently asked questions in multiple languages.
+
+**Important**: All schema changes are additive and reference existing tables safely.
+
+## Architecture
+
+### Core Components
+
+- **API Server** (`@hotel-voice-bot/api`) - Express.js server with WhatsApp integration
+- **Integrations** (`@hotel-voice-bot/integrations`) - External service integrations
+- **Shared Types** (`@hotel-voice-bot/shared`) - Common types and utilities
+- **Scripts** (`@hotel-voice-bot/scripts`) - Database and utility scripts
+
+### Data Flow
+
+1. WhatsApp message received via WAHA webhook
+2. Message processed by NLP controller
+3. Intent classification and entity extraction
+4. Response generation via OpenAI
+5. Response sent back through WhatsApp
+6. All interactions logged to Supabase
 
 ## Contributing
 
@@ -231,6 +221,14 @@ See `.env.example` for required environment variables.
 4. Add tests for your changes
 5. Ensure all tests pass
 6. Submit a pull request
+
+### Development Principles
+
+- **Additive Migrations**: Never modify or drop existing tables
+- **Comprehensive Logging**: Log all messages and escalations
+- **Modular Design**: Keep conversation handling modular for future expansion
+- **FAQ Management**: Keep FAQ answers easily updateable (not hardcoded)
+- **No Conflicts**: Never break existing restaurant/hotel app flows
 
 ### Commit Convention
 
@@ -250,3 +248,9 @@ ISC License
 ## Support
 
 For support, please open an issue in the GitHub repository.
+
+## Training and Onboarding
+
+For team training materials and onboarding documentation, see:
+- [Training Materials](docs/training/)
+- [Post-launch Review Template](docs/post-launch-review-template.md)

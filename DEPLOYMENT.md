@@ -1,5 +1,7 @@
 # Production Deployment Guide
 
+<!-- Last Updated: 2025-07-17 -->
+
 This guide will help you deploy the Hotel Voice Bot to production with comprehensive monitoring, alerting, and logging.
 
 ## Prerequisites

@@ -1,5 +1,7 @@
 # Hotel Voice Bot Specification Document
 
+<!-- Last Updated: 2025-07-17 -->
+
 ## Project Overview
 
 The project aims to automate guest interactions through a WhatsApp-integrated PWA, eventually supporting multiple languages and multiple guest services.

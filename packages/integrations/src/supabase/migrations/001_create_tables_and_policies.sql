@@ -1,3 +1,5 @@
+-- Last Updated: 2025-07-17
+
 -- Enable the pg_vector extension
 CREATE EXTENSION IF NOT EXISTS vector;
 

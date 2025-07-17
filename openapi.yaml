@@ -1,0 +1,1151 @@
+# Last Updated: 2025-07-17
+
+openapi: 3.0.0
+info:
+  title: Hotel Voice Bot API
+  version: 1.0.0
+  description: |
+    AI-powered hotel voice bot with WhatsApp integration.
+
+    This API provides endpoints for:
+    - WhatsApp message processing
+    - Bot conversation management
+    - Escalation handling
+    - FAQ management
+    - Guest interaction logging
+
+    ## Authentication
+
+    Most endpoints require authentication via JWT tokens or API keys.
+
+    ## Rate Limiting
+
+    API endpoints are rate-limited to prevent abuse.
+
+    ## Error Handling
+
+    All errors follow a consistent format with appropriate HTTP status codes.
+
+  contact:
+    name: Hotel Voice Bot Support
+    email: support@example.com
+  license:
+    name: ISC
+    url: https://opensource.org/licenses/ISC
+
+servers:
+  - url: http://localhost:3000
+    description: Development server
+  - url: https://api.yourdomain.com
+    description: Production server
+
+paths:
+  /api/health:
+    get:
+      summary: Health check endpoint
+      description: Returns the health status of the API
+      operationId: healthCheck
+      tags:
+        - Health
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  timestamp:
+                    type: string
+                    format: date-time
+                  uptime:
+                    type: number
+                    description: Server uptime in seconds
+                required:
+                  - status
+                  - timestamp
+                  - uptime
+
+  /api/whatsapp/webhook:
+    get:
+      summary: WhatsApp webhook verification
+      description: Verifies webhook token for WhatsApp integration
+      operationId: verifyWebhook
+      tags:
+        - WhatsApp
+      parameters:
+        - name: token
+          in: query
+          required: true
+          description: Webhook verification token
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Token verified successfully
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Token verified
+        '403':
+          description: Verification failed
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Verification failed
+
+    post:
+      summary: WhatsApp webhook endpoint
+      description: Handles incoming WhatsApp messages from WAHA
+      operationId: processWhatsAppMessage
+      tags:
+        - WhatsApp
+      parameters:
+        - name: token
+          in: query
+          required: true
+          description: Webhook verification token
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WAHAMessage'
+      responses:
+        '200':
+          description: Message processed successfully
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: EVENT_RECEIVED
+        '403':
+          description: Invalid token
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Invalid token
+
+  /api/conversations:
+    get:
+      summary: Get conversations
+      description: Retrieve conversations with pagination
+      operationId: getConversations
+      tags:
+        - Conversations
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, ended, escalated]
+        - name: phone_number
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Conversations retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  conversations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Conversation'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationInfo'
+
+    post:
+      summary: Create conversation
+      description: Create a new conversation
+      operationId: createConversation
+      tags:
+        - Conversations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateConversationRequest'
+      responses:
+        '201':
+          description: Conversation created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/conversations/{conversationId}:
+    get:
+      summary: Get conversation by ID
+      description: Retrieve a specific conversation
+      operationId: getConversation
+      tags:
+        - Conversations
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Conversation retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+        '404':
+          description: Conversation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    patch:
+      summary: Update conversation
+      description: Update conversation status or context
+      operationId: updateConversation
+      tags:
+        - Conversations
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateConversationRequest'
+      responses:
+        '200':
+          description: Conversation updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+        '404':
+          description: Conversation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/conversations/{conversationId}/messages:
+    get:
+      summary: Get conversation messages
+      description: Retrieve messages for a specific conversation
+      operationId: getConversationMessages
+      tags:
+        - Messages
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 100
+        - name: before
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Messages retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messages:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BotMessage'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationInfo'
+
+    post:
+      summary: Send message
+      description: Send a message in a conversation
+      operationId: sendMessage
+      tags:
+        - Messages
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendMessageRequest'
+      responses:
+        '201':
+          description: Message sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BotMessage'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/escalations:
+    get:
+      summary: Get escalations
+      description: Retrieve escalation records
+      operationId: getEscalations
+      tags:
+        - Escalations
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [open, assigned, resolved, closed]
+        - name: assigned_to
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+      responses:
+        '200':
+          description: Escalations retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  escalations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Escalation'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationInfo'
+
+    post:
+      summary: Create escalation
+      description: Create a new escalation
+      operationId: createEscalation
+      tags:
+        - Escalations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEscalationRequest'
+      responses:
+        '201':
+          description: Escalation created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Escalation'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/escalations/{escalationId}:
+    get:
+      summary: Get escalation by ID
+      description: Retrieve a specific escalation
+      operationId: getEscalation
+      tags:
+        - Escalations
+      parameters:
+        - name: escalationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Escalation retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Escalation'
+        '404':
+          description: Escalation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    patch:
+      summary: Update escalation
+      description: Update escalation status or assignment
+      operationId: updateEscalation
+      tags:
+        - Escalations
+      parameters:
+        - name: escalationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEscalationRequest'
+      responses:
+        '200':
+          description: Escalation updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Escalation'
+        '404':
+          description: Escalation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/faqs:
+    get:
+      summary: Get FAQs
+      description: Retrieve frequently asked questions
+      operationId: getFAQs
+      tags:
+        - FAQs
+      parameters:
+        - name: language
+          in: query
+          schema:
+            type: string
+            default: en
+            example: en
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 200
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+      responses:
+        '200':
+          description: FAQs retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  faqs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FAQ'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationInfo'
+
+    post:
+      summary: Create FAQ
+      description: Create a new FAQ entry
+      operationId: createFAQ
+      tags:
+        - FAQs
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFAQRequest'
+      responses:
+        '201':
+          description: FAQ created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FAQ'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/faqs/{faqId}:
+    get:
+      summary: Get FAQ by ID
+      description: Retrieve a specific FAQ
+      operationId: getFAQ
+      tags:
+        - FAQs
+      parameters:
+        - name: faqId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: FAQ retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FAQ'
+        '404':
+          description: FAQ not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      summary: Update FAQ
+      description: Update an existing FAQ
+      operationId: updateFAQ
+      tags:
+        - FAQs
+      parameters:
+        - name: faqId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateFAQRequest'
+      responses:
+        '200':
+          description: FAQ updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FAQ'
+        '404':
+          description: FAQ not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: Delete FAQ
+      description: Delete an existing FAQ
+      operationId: deleteFAQ
+      tags:
+        - FAQs
+      parameters:
+        - name: faqId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: FAQ deleted successfully
+        '404':
+          description: FAQ not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/analytics/conversations:
+    get:
+      summary: Get conversation analytics
+      description: Retrieve analytics data for conversations
+      operationId: getConversationAnalytics
+      tags:
+        - Analytics
+      parameters:
+        - name: start_date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: group_by
+          in: query
+          schema:
+            type: string
+            enum: [hour, day, week, month]
+            default: day
+      responses:
+        '200':
+          description: Analytics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationAnalytics'
+
+  /api/analytics/escalations:
+    get:
+      summary: Get escalation analytics
+      description: Retrieve analytics data for escalations
+      operationId: getEscalationAnalytics
+      tags:
+        - Analytics
+      parameters:
+        - name: start_date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: group_by
+          in: query
+          schema:
+            type: string
+            enum: [hour, day, week, month]
+            default: day
+      responses:
+        '200':
+          description: Analytics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EscalationAnalytics'
+
+components:
+  schemas:
+    WAHAMessage:
+      type: object
+      properties:
+        from:
+          type: string
+          description: Sender's phone number
+        to:
+          type: string
+          description: Recipient's phone number
+        body:
+          type: string
+          description: Message content
+        timestamp:
+          type: string
+          format: date-time
+        messageId:
+          type: string
+          description: Unique message identifier
+        type:
+          type: string
+          enum: [text, audio, image, document]
+      required:
+        - from
+        - to
+        - body
+        - timestamp
+        - messageId
+        - type
+
+    Conversation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        phoneNumber:
+          type: string
+          description: Guest's phone number
+        guestId:
+          type: string
+          description: Reference to guest_users table
+        status:
+          type: string
+          enum: [active, ended, escalated]
+        context:
+          $ref: '#/components/schemas/ConversationContext'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        lastMessageAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - phoneNumber
+        - status
+        - context
+        - createdAt
+        - updatedAt
+        - lastMessageAt
+
+    ConversationContext:
+      type: object
+      properties:
+        hotelInfo:
+          $ref: '#/components/schemas/HotelInfo'
+        guestInfo:
+          $ref: '#/components/schemas/GuestInfo'
+        currentIntent:
+          type: string
+        extractedEntities:
+          type: object
+          additionalProperties: true
+        isEscalated:
+          type: boolean
+        escalationReason:
+          type: string
+      required:
+        - hotelInfo
+        - isEscalated
+
+    HotelInfo:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        location:
+          type: string
+        amenities:
+          type: array
+          items:
+            type: string
+        contactInfo:
+          type: object
+          properties:
+            phone:
+              type: string
+            email:
+              type: string
+            address:
+              type: string
+      required:
+        - id
+        - name
+        - location
+        - amenities
+        - contactInfo
+
+    GuestInfo:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        phoneNumber:
+          type: string
+        roomNumber:
+          type: string
+        checkInDate:
+          type: string
+          format: date
+        checkOutDate:
+          type: string
+          format: date
+        preferences:
+          type: array
+          items:
+            type: string
+      required:
+        - id
+        - name
+        - phoneNumber
+
+    BotMessage:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        guestUserId:
+          type: string
+          description: Reference to guest_users table
+        userProfileId:
+          type: string
+          format: uuid
+          description: Reference to profiles table
+        stayId:
+          type: string
+        whatsappNumber:
+          type: string
+        messageType:
+          type: string
+          enum: [guest_audio, guest_text, bot_text, bot_audio, human_override]
+        content:
+          type: string
+          description: Text content or audio file URL
+        languageDetected:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        escalatedToHuman:
+          type: boolean
+        sessionId:
+          type: string
+          format: uuid
+        costEstimateUsd:
+          type: number
+          format: decimal
+      required:
+        - id
+        - messageType
+        - content
+        - createdAt
+        - escalatedToHuman
+
+    Escalation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        botMessageId:
+          type: string
+          format: uuid
+          description: Reference to bot_messages table
+        guestUserId:
+          type: string
+          description: Reference to guest_users table
+        stayId:
+          type: string
+        assignedTo:
+          type: string
+        status:
+          type: string
+          enum: [open, assigned, resolved, closed]
+          default: open
+        notes:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        closedAt:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - id
+        - status
+        - createdAt
+
+    FAQ:
+      type: object
+      properties:
+        id:
+          type: integer
+        question:
+          type: string
+        answer:
+          type: string
+        language:
+          type: string
+          default: en
+        category:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - question
+        - answer
+        - language
+        - updatedAt
+
+    CreateConversationRequest:
+      type: object
+      properties:
+        phoneNumber:
+          type: string
+        guestId:
+          type: string
+        hotelInfo:
+          $ref: '#/components/schemas/HotelInfo'
+      required:
+        - phoneNumber
+        - hotelInfo
+
+    UpdateConversationRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [active, ended, escalated]
+        context:
+          $ref: '#/components/schemas/ConversationContext'
+
+    SendMessageRequest:
+      type: object
+      properties:
+        content:
+          type: string
+        messageType:
+          type: string
+          enum: [guest_text, guest_audio, bot_text, bot_audio, human_override]
+        languageDetected:
+          type: string
+      required:
+        - content
+        - messageType
+
+    CreateEscalationRequest:
+      type: object
+      properties:
+        botMessageId:
+          type: string
+          format: uuid
+        guestUserId:
+          type: string
+        stayId:
+          type: string
+        assignedTo:
+          type: string
+        notes:
+          type: string
+      required:
+        - botMessageId
+
+    UpdateEscalationRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [open, assigned, resolved, closed]
+        assignedTo:
+          type: string
+        notes:
+          type: string
+
+    CreateFAQRequest:
+      type: object
+      properties:
+        question:
+          type: string
+        answer:
+          type: string
+        language:
+          type: string
+          default: en
+        category:
+          type: string
+      required:
+        - question
+        - answer
+        - language
+
+    UpdateFAQRequest:
+      type: object
+      properties:
+        question:
+          type: string
+        answer:
+          type: string
+        language:
+          type: string
+        category:
+          type: string
+
+    ConversationAnalytics:
+      type: object
+      properties:
+        totalConversations:
+          type: integer
+        activeConversations:
+          type: integer
+        escalatedConversations:
+          type: integer
+        avgResponseTime:
+          type: number
+          format: float
+        avgConversationLength:
+          type: number
+          format: float
+        timeSeries:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                format: date-time
+              count:
+                type: integer
+              escalations:
+                type: integer
+
+    EscalationAnalytics:
+      type: object
+      properties:
+        totalEscalations:
+          type: integer
+        openEscalations:
+          type: integer
+        avgResolutionTime:
+          type: number
+          format: float
+        escalationReasons:
+          type: array
+          items:
+            type: object
+            properties:
+              reason:
+                type: string
+              count:
+                type: integer
+        timeSeries:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                format: date-time
+              count:
+                type: integer
+
+    PaginationInfo:
+      type: object
+      properties:
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        hasMore:
+          type: boolean
+      required:
+        - total
+        - limit
+        - offset
+        - hasMore
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        code:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+      required:
+        - error
+        - message
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+security:
+  - BearerAuth: []
+  - ApiKeyAuth: []
+
+tags:
+  - name: Health
+    description: Health check endpoints
+  - name: WhatsApp
+    description: WhatsApp integration endpoints
+  - name: Conversations
+    description: Conversation management
+  - name: Messages
+    description: Message handling
+  - name: Escalations
+    description: Escalation management
+  - name: FAQs
+    description: FAQ management
+  - name: Analytics
+    description: Analytics and reporting

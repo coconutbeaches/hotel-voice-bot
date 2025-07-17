@@ -1,3 +1,5 @@
+-- Last Updated: 2025-07-17
+
 -- Enhanced table definitions with embeddings support
 -- Update messages table to include embeddings
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS embedding vector(1536);

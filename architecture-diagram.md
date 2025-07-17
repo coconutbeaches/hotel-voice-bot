@@ -1,5 +1,7 @@
 # Hotel Voice Bot System Architecture
 
+<!-- Last Updated: 2025-07-17 -->
+
 ## Architecture Diagram
 
 ```mermaid
