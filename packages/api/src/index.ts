@@ -10,8 +10,13 @@ import { setupWaha } from './scripts/setupWaha.js';
 import swaggerSpec from './swagger.js';
 import { logger } from './utils/logger.js';
 
+console.log('=== Server Startup Debug ===');
+console.log('Starting server initialization...');
+
 const app: express.Application = express();
 const PORT = process.env.PORT || 8080;
+
+console.log(`PORT configured as: ${PORT}`);
 
 // Middleware
 app.use(helmet());
@@ -41,16 +46,43 @@ app.use('/api/whatsapp', whatsappRouter);
 // Error handling
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-  // Make WAHA setup non-blocking
-  setupWaha().catch(error => {
-    logger.error('WAHA setup failed but server continues', error);
+// Wrap server startup in try-catch
+try {
+  console.log('About to start server...');
+  const server = app.listen(PORT, () => {
+    console.log('Server started successfully!');
+
+    // Make WAHA setup non-blocking
+    setupWaha().catch(error => {
+      logger.error('WAHA setup failed but server continues', error);
+    });
+
+    logger.info(`Server running on port ${PORT}`);
+    logger.info(
+      `API documentation available at http://localhost:${PORT}/api-docs`
+    );
   });
-  
-  logger.info(`Server running on port ${PORT}`);
-  logger.info(
-    `API documentation available at http://localhost:${PORT}/api-docs`
-  );
-});
+
+  // Handle server errors
+  server.on('error', (error: any) => {
+    console.error('Server error:', error);
+    if (error.code === 'EADDRINUSE') {
+      console.error(`Port ${PORT} is already in use`);
+    }
+    process.exit(1);
+  });
+
+  // Handle process termination
+  process.on('SIGTERM', () => {
+    console.log('SIGTERM received, shutting down gracefully');
+    server.close(() => {
+      console.log('Server closed');
+      process.exit(0);
+    });
+  });
+} catch (error) {
+  console.error('Fatal error during server startup:', error);
+  process.exit(1);
+}
 
 export default app;
