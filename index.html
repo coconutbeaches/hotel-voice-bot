@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hotel Voice Bot - Test Pages</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 600px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      border-radius: 10px;
+      padding: 30px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 30px;
+    }
+    .links {
+      margin-top: 30px;
+    }
+    a {
+      display: inline-block;
+      padding: 15px 30px;
+      margin: 10px;
+      background: #007bff;
+      color: white;
+      text-decoration: none;
+      border-radius: 5px;
+      transition: background 0.3s;
+    }
+    a:hover {
+      background: #0056b3;
+    }
+    .info {
+      margin-top: 30px;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 5px;
+      text-align: left;
+    }
+    code {
+      background: #e9ecef;
+      padding: 2px 5px;
+      border-radius: 3px;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🏨 Hotel Voice Bot Test Pages</h1>
+    
+    <div class="links">
+      <a href="/test-voice.html">🎤 Voice Recording Test</a>
+      <a href="/public/test-voice.html">🎤 Voice Test (Alt Path)</a>
+    </div>
+    
+    <div class="info">
+      <h3>Available Endpoints:</h3>
+      <ul style="text-align: left;">
+        <li><code>POST /api/transcribe</code> - Transcribe audio to text</li>
+        <li><code>/test-voice.html</code> - Browser-based voice recording test</li>
+      </ul>
+      
+      <h3>Test the transcription endpoint:</h3>
+      <p>Use the voice recording test page above, or send audio directly:</p>
+      <pre style="text-align: left; background: #f0f0f0; padding: 10px; overflow-x: auto;">
+curl -X POST https://hotel-voice-bot.vercel.app/api/transcribe \
+  -H "Content-Type: audio/webm" \
+  --data-binary @audio.webm</pre>
+    </div>
+  </div>
+</body>
+</html>
