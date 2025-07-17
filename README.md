@@ -22,29 +22,29 @@ This is a mono-repo using PNPM workspaces with the following packages:
 
 ## Quick Start
 
-1. **Clone the repository**
+- [ ] **Clone the repository**
    ```bash
    git clone <repository-url>
    cd hotel-voice-bot
    ```
 
-2. **Install dependencies**
+- [ ] **Install dependencies**
    ```bash
    pnpm install
    ```
 
-3. **Set up environment variables**
+- [ ] **Set up environment variables**
    ```bash
    cp .env.example .env
    # Edit .env with your configuration
    ```
 
-4. **Start development server**
+- [ ] **Start development server**
    ```bash
    pnpm run dev
    ```
 
-5. **Access the application**
+- [ ] **Access the application**
    - API: http://localhost:3000
    - API Documentation: http://localhost:3000/api-docs
    - Health Check: http://localhost:3000/api/health
@@ -215,12 +215,12 @@ Manages frequently asked questions in multiple languages.
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests for your changes
-5. Ensure all tests pass
-6. Submit a pull request
+- [ ] Fork the repository
+- [ ] Create a feature branch
+- [ ] Make your changes
+- [ ] Add tests for your changes
+- [ ] Ensure all tests pass
+- [ ] Submit a pull request
 
 ### Development Principles
 

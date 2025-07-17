@@ -352,6 +352,22 @@ If deployment fails or issues are discovered:
 - **Project Manager**: pm@yourcompany.com
 - **Technical Lead**: tech-lead@yourcompany.com
 
+## Related Docs
+
+- [**Rollback Runbook**](./rollback.md) - Use this when deployment fails or issues are detected
+- [**Hot-patch Runbook**](./hot-patch.md) - Use this for emergency fixes without full deployment
+
+## Known Issues/Caveats
+
+*Document any known issues, edge cases, or operational caveats discovered during deployment. For new issues, please create a [Known Issues ticket](.github/ISSUE_TEMPLATE/known_issues.md) and reference it here.*
+
+<!-- Example:
+### Issue: Database Connection Timeout During Peak Traffic
+- **Severity**: Medium
+- **Workaround**: Increase connection pool size in deployment config
+- **Reference**: [Known Issue #123](https://github.com/your-org/hotel-voice-bot/issues/123)
+-->
+
 ## References
 
 - [AWS ECS Documentation](https://docs.aws.amazon.com/ecs/)

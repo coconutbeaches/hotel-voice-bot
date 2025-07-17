@@ -152,6 +152,22 @@ This runbook provides step-by-step instructions for deploying hot-patches to the
 - **Project Manager**: pm@yourcompany.com
 - **Technical Lead**: tech-lead@yourcompany.com
 
+## Related Docs
+
+- [**Deployment Runbook**](./deployment.md) - Use this for full production deployments
+- [**Rollback Runbook**](./rollback.md) - Use this if hot-patch fails or causes issues
+
+## Known Issues/Caveats
+
+*Document any known issues, edge cases, or operational caveats discovered during hot-patch operations. For new issues, please create a [Known Issues ticket](.github/ISSUE_TEMPLATE/known_issues.md) and reference it here.*
+
+<!-- Example:
+### Issue: Hot-patch Deployment Fails on Kubernetes v1.24+
+- **Severity**: Medium
+- **Workaround**: Use `kubectl patch` instead of `kubectl apply`
+- **Reference**: [Known Issue #456](https://github.com/your-org/hotel-voice-bot/issues/456)
+-->
+
 ## References
 
 - [AWS ECS Hot-patch Guide](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ECS_hotpatches.html)

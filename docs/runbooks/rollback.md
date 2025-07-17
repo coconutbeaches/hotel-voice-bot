@@ -509,6 +509,22 @@ else
 fi
 ```
 
+## Related Docs
+
+- [**Deployment Runbook**](./deployment.md) - Use this for planning and executing new deployments
+- [**Hot-patch Runbook**](./hot-patch.md) - Use this for emergency fixes that don't require full rollback
+
+## Known Issues/Caveats
+
+*Document any known issues, edge cases, or operational caveats discovered during rollback operations. For new issues, please create a [Known Issues ticket](.github/ISSUE_TEMPLATE/known_issues.md) and reference it here.*
+
+<!-- Example:
+### Issue: Rollback Fails When Database Migration Contains Non-Reversible Changes
+- **Severity**: High
+- **Workaround**: Manual database restoration required from backup
+- **Reference**: [Known Issue #789](https://github.com/your-org/hotel-voice-bot/issues/789)
+-->
+
 ## References
 
 - [Kubernetes Rollback Documentation](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#rolling-back-a-deployment)

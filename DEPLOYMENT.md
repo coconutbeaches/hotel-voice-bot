@@ -14,7 +14,7 @@ This guide will help you deploy the Hotel Voice Bot to production with comprehen
 
 ## Step 1: Set up secrets
 
-1. Base64 encode your secrets:
+- [ ] Base64 encode your secrets:
 
 ```bash
 echo -n "your-sentry-dsn" | base64
@@ -25,17 +25,17 @@ echo -n "your-supabase-key" | base64
 echo -n "your-pagerduty-integration-key" | base64
 ```
 
-2. Update the `deploy/k8s/secret.yml` file with your base64-encoded values.
+- [ ] Update the `deploy/k8s/secret.yml` file with your base64-encoded values.
 
 ## Step 2: Update configuration
 
-1. Update `deploy/k8s/ingress.yml`:
+- [ ] Update `deploy/k8s/ingress.yml`:
    - Replace `ACCOUNT_ID` with your AWS account ID
    - Replace `CERT_ID` with your SSL certificate ID
    - Replace `WAF_ID` with your WAF web ACL ID
    - Update domain names to match your setup
 
-2. Update `deploy/k8s/deployment.yml`:
+- [ ] Update `deploy/k8s/deployment.yml`:
    - Replace `your-registry/hotel-voice-bot:latest` with your actual image URI
 
 ## Step 3: Deploy the application
@@ -75,22 +75,22 @@ kubectl apply -f deploy/monitoring/alertmanager-deployment.yml
 
 ## Step 5: Configure services
 
-1. **Prometheus**: Access at `http://prometheus-service:9090`
-2. **Grafana**: Access at `http://grafana-service:3000` (admin/admin123)
-3. **AlertManager**: Access at `http://alertmanager-service:9093`
+- [ ] **Prometheus**: Access at `http://prometheus-service:9090`
+- [ ] **Grafana**: Access at `http://grafana-service:3000` (admin/admin123)
+- [ ] **AlertManager**: Access at `http://alertmanager-service:9093`
 
 ## Step 6: Set up PagerDuty
 
-1. Create a PagerDuty service
-2. Get the integration key
-3. Update the `PAGERDUTY_INTEGRATION_KEY` in your secrets
-4. Update `deploy/monitoring/alertmanager-deployment.yml` with your PagerDuty configuration
+- [ ] Create a PagerDuty service
+- [ ] Get the integration key
+- [ ] Update the `PAGERDUTY_INTEGRATION_KEY` in your secrets
+- [ ] Update `deploy/monitoring/alertmanager-deployment.yml` with your PagerDuty configuration
 
 ## Step 7: Configure Sentry
 
-1. Create a Sentry project
-2. Get the DSN
-3. Update the `SENTRY_DSN` in your secrets
+- [ ] Create a Sentry project
+- [ ] Get the DSN
+- [ ] Update the `SENTRY_DSN` in your secrets
 
 ## Step 8: Set up WAF
 
@@ -121,10 +121,10 @@ kubectl get ingress -n hotel-voice-bot
 
 ## Step 10: Test monitoring and alerting
 
-1. **Check Prometheus targets**: Verify all targets are up
-2. **View Grafana dashboards**: Check metrics are being collected
-3. **Test alerts**: Trigger a test alert to verify PagerDuty integration
-4. **Check logs**: Verify logs are being collected by Loki
+- [ ] **Check Prometheus targets**: Verify all targets are up
+- [ ] **View Grafana dashboards**: Check metrics are being collected
+- [ ] **Test alerts**: Trigger a test alert to verify PagerDuty integration
+- [ ] **Check logs**: Verify logs are being collected by Loki
 
 ## Monitoring Features
 
@@ -167,10 +167,10 @@ kubectl get ingress -n hotel-voice-bot
 
 ## Maintenance
 
-1. **Regular Updates**: Keep images and dependencies updated
-2. **Backup**: Regular backups of metrics and logs
-3. **Monitoring**: Monitor resource usage and scale accordingly
-4. **Security**: Regular security scans and updates
+- [ ] **Regular Updates**: Keep images and dependencies updated
+- [ ] **Backup**: Regular backups of metrics and logs
+- [ ] **Monitoring**: Monitor resource usage and scale accordingly
+- [ ] **Security**: Regular security scans and updates
 
 ## Troubleshooting
 
@@ -195,3 +195,14 @@ fly logs
 ```
 
 The `fly.toml` configuration is already set up with health checks and auto-scaling.
+
+## Known Issues/Caveats
+
+*Document any known issues, edge cases, or operational caveats discovered during production deployment. For new issues, please create a [Known Issues ticket](.github/ISSUE_TEMPLATE/known_issues.md) and reference it here.*
+
+<!-- Example:
+### Issue: EKS Cluster Autoscaler Conflicts with HPA
+- **Severity**: Medium
+- **Workaround**: Set HPA max replicas to align with cluster capacity
+- **Reference**: [Known Issue #101](https://github.com/your-org/hotel-voice-bot/issues/101)
+-->

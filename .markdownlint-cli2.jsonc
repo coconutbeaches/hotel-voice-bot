@@ -1,0 +1,14 @@
+{
+  "config": {
+    "extends": "markdownlint/style/all",
+    "line-length": false,
+    "no-inline-html": false,
+    "no-bare-urls": false,
+    "no-duplicate-heading": {
+      "siblings_only": true
+    }
+  },
+  "customRules": [
+    "markdownlint-rule-relative-links"
+  ]
+}
