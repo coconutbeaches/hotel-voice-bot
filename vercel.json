@@ -1,20 +1,14 @@
 {
-  "version": 2,
-  "buildCommand": "pnpm run build",
-  "outputDirectory": "packages/api/dist",
   "builds": [
     {
-      "src": "packages/api/dist/index.js",
+      "src": "packages/api/index.ts",
       "use": "@vercel/node"
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "/packages/api/dist/index.js"
+      "dest": "packages/api/index.ts"
     }
-  ],
-  "env": {
-    "NODE_ENV": "production"
-  }
+  ]
 }
