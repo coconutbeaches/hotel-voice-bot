@@ -6,11 +6,17 @@ export interface WAHAMessage {
   timestamp: number;
   from: string;
   body: string;
-  type: 'text' | 'image' | 'audio' | 'video' | 'document' | 'location' | 'contacts';
+  type: 'text' | 'image' | 'audio' | 'video' | 'document' | 'location' | 'contacts' | 'voice';
   fromMe: boolean;
   hasMedia: boolean;
   mediaUrl?: string;
   mimeType?: string;
+  voice?: {
+    id: string;
+    mimetype: string;
+    filename: string;
+    duration: number;
+  };
 }
 
 export interface WAHASession {
@@ -262,6 +268,37 @@ export class WAHAClient {
       };
     } catch (error) {
       logger.error('Failed to send location message', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Send voice message
+   */
+  async sendVoiceMessage(
+    to: string,
+    audioBuffer: Buffer,
+    filename: string = 'voice.mp3'
+  ): Promise<{ messageId: string }> {
+    try {
+      // For WAHA, send audio file as base64 encoded data
+      const base64Audio = audioBuffer.toString('base64');
+      
+      const response = await this.client.post('/api/sendVoice', {
+        session: this.sessionName,
+        chatId: this.formatPhoneNumber(to),
+        file: {
+          data: base64Audio,
+          mimetype: 'audio/mp3',
+          filename: filename
+        }
+      });
+      
+      return {
+        messageId: response.data.id,
+      };
+    } catch (error) {
+      logger.error('Failed to send voice message', error);
       throw error;
     }
   }

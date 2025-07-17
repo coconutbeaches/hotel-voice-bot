@@ -21,10 +21,10 @@ Adds bot-related tables to support the voice bot functionality:
 ### Production Environment
 ```bash
 # Using Supabase CLI (recommended)
-supabase db push --file packages/scripts/migrations/001_add_bot_tables.sql
+supabase db push --file [packages/scripts/migrations/001_add_bot_tables.sql](./001_add_bot_tables.sql)
 
 # Or using psql
-psql -h [HOST] -U [USER] -d [DATABASE] -f packages/scripts/migrations/001_add_bot_tables.sql
+psql -h [HOST] -U [USER] -d [DATABASE] -f [packages/scripts/migrations/001_add_bot_tables.sql](./001_add_bot_tables.sql)
 ```
 
 ### Development Environment

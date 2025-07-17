@@ -57,3 +57,11 @@ jobs:
     
     - name: Build packages
       run: pnpm run build
+    
+    - name: Lint markdown files
+      run: pnpm run lint:md
+    
+    - name: Check documentation timestamps
+      run: pnpm run docs:touch -- --check
+      env:
+        CI_COMMIT_DATE: ${{ github.event.head_commit.timestamp }}

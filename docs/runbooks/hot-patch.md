@@ -60,6 +60,30 @@ This runbook provides step-by-step instructions for deploying hot-patches to the
    git push origin hotfix/quick-patch-01
    ```
 
+5. **Create Pull Request**
+   - Submit PR with `hotfix` label
+   - Follow the PR template in `.github/pull_request_template.md`
+   - Get expedited review from team leads
+
+6. **MANDATORY: Create Tag After Merge**
+   ⚠️ **REQUIRED**: After PR is merged to main, immediately create and push a tag:
+   
+   ```bash
+   # Switch to main and pull latest
+   git checkout main
+   git pull origin main
+   
+   # Create tag with today's date
+   git tag hotfix-$(date +%Y-%m-%d)
+   git push origin hotfix-$(date +%Y-%m-%d)
+   
+   # Alternative for multiple hotfixes same day
+   git tag hotfix-$(date +%Y-%m-%d)-02
+   git push origin hotfix-$(date +%Y-%m-%d)-02
+   ```
+   
+   **Tag must be pushed within 5 minutes of merge** - GitHub Actions will fail otherwise.
+
 ### Step 2: Pipeline Execution
 
 1. **Deploy to Staging**
@@ -167,6 +191,10 @@ This runbook provides step-by-step instructions for deploying hot-patches to the
 - **Workaround**: Use `kubectl patch` instead of `kubectl apply`
 - **Reference**: [Known Issue #456](https://github.com/your-org/hotel-voice-bot/issues/456)
 -->
+
+## Post-mortem
+- [ ] If incident ≥ P1, schedule a 30-min post-mortem within 48 h  
+- [ ] File findings in /docs/post-mortems/YYYY-MM-DD-<slug>.md
 
 ## References
 

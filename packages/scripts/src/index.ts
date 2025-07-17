@@ -1,4 +1,22 @@
 #!/usr/bin/env node
+
+/**
+ * Hotel Voice Bot Scripts CLI
+ * 
+ * This script provides command-line utilities for managing the Hotel Voice Bot.
+ * 
+ * Usage:
+ *   npm run db:migrate    - Run database migrations
+ *   npm run db:seed       - Seed database with sample data
+ *   node dist/index.js    - Run the CLI directly
+ * 
+ * Environment Variables:
+ *   DATABASE_URL         - PostgreSQL connection string for database operations
+ *   SUPABASE_URL         - Supabase project URL
+ *   SUPABASE_ANON_KEY    - Supabase anonymous key
+ *   SUPABASE_SERVICE_KEY - Supabase service role key (for migrations)
+ */
+
 import { program } from 'commander';
 
 program

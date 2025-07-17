@@ -195,7 +195,7 @@ Manages frequently asked questions in multiple languages.
 
 **Important**: All schema changes are additive and reference existing tables safely.
 
-## Architecture
+## System Architecture
 
 ### Core Components
 
@@ -229,6 +229,7 @@ Manages frequently asked questions in multiple languages.
 - **Modular Design**: Keep conversation handling modular for future expansion
 - **FAQ Management**: Keep FAQ answers easily updateable (not hardcoded)
 - **No Conflicts**: Never break existing restaurant/hotel app flows
+- **Operational Maturity**: Follow structured operational processes ([Operational Maturity Process](docs/process/operational-maturity.md))
 
 ### Commit Convention
 

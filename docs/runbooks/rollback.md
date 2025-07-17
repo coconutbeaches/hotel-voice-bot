@@ -525,6 +525,10 @@ fi
 - **Reference**: [Known Issue #789](https://github.com/your-org/hotel-voice-bot/issues/789)
 -->
 
+## Post-mortem
+- [ ] If incident ≥ P1, schedule a 30-min post-mortem within 48 h  
+- [ ] File findings in /docs/post-mortems/YYYY-MM-DD-<slug>.md
+
 ## References
 
 - [Kubernetes Rollback Documentation](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#rolling-back-a-deployment)

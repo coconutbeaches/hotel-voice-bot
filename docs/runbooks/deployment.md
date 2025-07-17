@@ -68,8 +68,11 @@ This runbook provides step-by-step instructions for deploying the Hotel Voice Bo
    ```bash
    # Apply bot tables migration
    psql -h [HOST] -U [USER] -d [DATABASE] -f packages/scripts/migrations/001_add_bot_tables.sql
+   ```
 
-   # Or using Supabase CLI
+## Or using Supabase CLI
+
+   ```bash
    supabase db push
    ```
 

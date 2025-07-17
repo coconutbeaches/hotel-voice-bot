@@ -37,6 +37,23 @@ export class OpenAIClient {
       return 'Sorry, I could not transcribe the audio.';
     }
   }
+
+  async textToSpeech(text: string, voice: 'alloy' | 'echo' | 'fable' | 'onyx' | 'nova' | 'shimmer' = 'alloy'): Promise<Buffer | null> {
+    try {
+      const response = await openai.audio.speech.create({
+        model: 'tts-1',
+        voice: voice,
+        input: text,
+        response_format: 'mp3',
+      });
+
+      const buffer = Buffer.from(await response.arrayBuffer());
+      return buffer;
+    } catch (error) {
+      console.error('Error generating speech:', error);
+      return null;
+    }
+  }
 }
 
 export const openaiClient = new OpenAIClient();

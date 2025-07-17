@@ -6,9 +6,27 @@
     "no-bare-urls": false,
     "no-duplicate-heading": {
       "siblings_only": true
+    },
+    "no-missing-space-atx": true,
+    "no-missing-space-closed-atx": true,
+    "no-multiple-space-atx": true,
+    "no-multiple-space-closed-atx": true,
+    "blanks-around-headers": true,
+    "blanks-around-lists": true,
+    "no-trailing-spaces": true,
+    "no-multiple-blanks": true,
+    "no-trailing-punctuation": {
+      "punctuation": ".,;:!"
     }
   },
   "customRules": [
     "markdownlint-rule-relative-links"
+  ],
+  "globs": [
+    "**/*.md",
+    "!node_modules/**",
+    "!.git/**",
+    "!dist/**",
+    "!build/**"
   ]
 }

@@ -4,6 +4,9 @@
 -- This migration adds bot-related tables without modifying existing schema
 -- All changes are additive and safe for production
 
+-- Usage: Apply this migration using either Supabase CLI or psql.
+-- Environment Variables: Ensure DATABASE_URL is set for Supabase CLI or HOST, USER, and DATABASE are set for psql.
+
 -- Bot Messages Table
 -- Stores all bot conversation messages with guest users
 CREATE TABLE IF NOT EXISTS public.bot_messages (

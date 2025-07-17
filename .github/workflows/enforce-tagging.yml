@@ -1,0 +1,153 @@
+name: Enforce Tagging for Critical PRs
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+jobs:
+  enforce-tagging:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Check if PR requires tagging
+      id: check-labels
+      run: |
+        # Get PR labels
+        PR_LABELS='${{ toJson(github.event.pull_request.labels.*.name) }}'
+        echo "PR Labels: $PR_LABELS"
+        
+        # Check if PR has hotfix or migration-critical label
+        if echo "$PR_LABELS" | grep -q "hotfix"; then
+          echo "requires_tag=true" >> $GITHUB_OUTPUT
+          echo "tag_type=hotfix" >> $GITHUB_OUTPUT
+          echo "PR has hotfix label - tagging required"
+        elif echo "$PR_LABELS" | grep -q "migration-critical"; then
+          echo "requires_tag=true" >> $GITHUB_OUTPUT
+          echo "tag_type=migration-critical" >> $GITHUB_OUTPUT
+          echo "PR has migration-critical label - tagging required"
+        else
+          echo "requires_tag=false" >> $GITHUB_OUTPUT
+          echo "PR does not require tagging"
+        fi
+        
+        # Also check if branch name starts with hotfix/
+        BRANCH_NAME="${{ github.event.pull_request.head.ref }}"
+        echo "Branch name: $BRANCH_NAME"
+        
+        if [[ "$BRANCH_NAME" == hotfix/* ]]; then
+          echo "requires_tag=true" >> $GITHUB_OUTPUT
+          echo "tag_type=hotfix" >> $GITHUB_OUTPUT
+          echo "Branch is hotfix/* - tagging required"
+        fi
+    
+    - name: Wait for tag creation
+      if: steps.check-labels.outputs.requires_tag == 'true'
+      run: |
+        echo "Waiting for tag creation..."
+        TAG_TYPE="${{ steps.check-labels.outputs.tag_type }}"
+        DATE=$(date +%Y-%m-%d)
+        
+        # Wait up to 5 minutes for tag to be created
+        for i in {1..30}; do
+          echo "Checking for tags (attempt $i/30)..."
+          
+          # Fetch latest tags
+          git fetch --tags origin
+          
+          # Check for expected tag patterns
+          if [ "$TAG_TYPE" == "hotfix" ]; then
+            # Look for hotfix tags with today's date
+            if git tag -l | grep -E "^hotfix-$DATE(-[0-9]+)?(-.*)?$"; then
+              echo "✅ Found hotfix tag for today's date"
+              FOUND_TAG=$(git tag -l | grep -E "^hotfix-$DATE(-[0-9]+)?(-.*)?$" | head -1)
+              echo "Tag found: $FOUND_TAG"
+              exit 0
+            fi
+          elif [ "$TAG_TYPE" == "migration-critical" ]; then
+            # Look for migration tags with today's date
+            if git tag -l | grep -E "^migration-$DATE(-.*)?$"; then
+              echo "✅ Found migration-critical tag for today's date"
+              FOUND_TAG=$(git tag -l | grep -E "^migration-$DATE(-.*)?$" | head -1)
+              echo "Tag found: $FOUND_TAG"
+              exit 0
+            fi
+          fi
+          
+          echo "Tag not found yet, waiting 10 seconds..."
+          sleep 10
+        done
+        
+        echo "❌ Tag not found after 5 minutes"
+        exit 1
+    
+    - name: Validation successful
+      if: steps.check-labels.outputs.requires_tag == 'true'
+      run: |
+        echo "✅ Tagging requirement satisfied for ${{ steps.check-labels.outputs.tag_type }} PR"
+        echo "::notice::Tagging requirement satisfied for ${{ steps.check-labels.outputs.tag_type }} PR"
+    
+    - name: Create tag enforcement comment
+      if: failure() && steps.check-labels.outputs.requires_tag == 'true'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const tagType = '${{ steps.check-labels.outputs.tag_type }}';
+          const date = new Date().toISOString().split('T')[0];
+          
+          let tagExample = '';
+          if (tagType === 'hotfix') {
+            tagExample = `git tag hotfix-${date}
+          git push origin hotfix-${date}`;
+          } else if (tagType === 'migration-critical') {
+            tagExample = `git tag migration-${date}-description
+          git push origin migration-${date}-description`;
+          }
+          
+          const comment = `🚨 **Tagging Requirement Violation**
+          
+          This PR was labeled as \`${tagType}\` but no corresponding tag was created within 5 minutes of merge.
+          
+          **Required Action:**
+          Please create and push a tag immediately:
+          
+          \`\`\`bash
+          ${tagExample}
+          \`\`\`
+          
+          **Why this matters:**
+          - Ensures traceability for critical changes
+          - Required for deployment verification
+          - Helps with rollback procedures
+          
+          Please create the tag now and re-run the deployment if needed.
+          
+          See [CONTRIBUTING.md](./CONTRIBUTING.md#tagging-requirements) for more details.`;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
+    
+    - name: Fail if tagging requirement not met
+      if: failure() && steps.check-labels.outputs.requires_tag == 'true'
+      run: |
+        echo "❌ FAILURE: Tagging requirement not met for ${{ steps.check-labels.outputs.tag_type }} PR"
+        echo "::error::PR labeled as ${{ steps.check-labels.outputs.tag_type }} must be tagged within 5 minutes of merge"
+        echo "::error::Please create and push the required tag immediately"
+        exit 1
+    
+    - name: Skip tagging check
+      if: steps.check-labels.outputs.requires_tag == 'false'
+      run: |
+        echo "✅ PR does not require tagging - skipping check"
+        echo "::notice::PR does not require tagging - skipping check"

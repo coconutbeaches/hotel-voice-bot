@@ -1,4 +1,4 @@
-## Pull Request Summary
+# Pull Request Summary
 
 <!-- Brief description of the changes made -->
 
@@ -9,7 +9,7 @@
 - [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
 - [ ] Documentation update
 - [ ] Infrastructure/deployment change
-- [ ] Hot-patch/emergency fix
+- [ ] Hot-patch/emergency fix ⚠️ **REQUIRES TAGGING** - See [CONTRIBUTING.md](../CONTRIBUTING.md#tagging-requirements)
 
 ## Changes Made
 
@@ -76,6 +76,17 @@
 - [ ] Rollback procedures are documented
 - [ ] Performance impact has been assessed
 
+### ⚠️ Tagging Requirements (for hotfix/migration-critical PRs)
+**If this PR is labeled `hotfix` or `migration-critical` or branch starts with `hotfix/`:**
+
+- [ ] I understand that a tag MUST be created within 5 minutes of merge
+- [ ] I have read the tagging requirements in [CONTRIBUTING.md](../CONTRIBUTING.md#tagging-requirements)
+- [ ] I will create the tag immediately after merge using the format:
+  - Hotfix: `git tag hotfix-YYYY-MM-DD && git push origin hotfix-YYYY-MM-DD`
+  - Migration-critical: `git tag migration-YYYY-MM-DD-description && git push origin migration-YYYY-MM-DD-description`
+
+**Note**: GitHub Actions will fail if the tag is not created within 5 minutes.
+
 ## Related Issues
 
 <!-- Link any related issues -->
@@ -113,3 +124,5 @@ References #
 - [ ] Known Issues/Caveats are documented (for ops changes)
 - [ ] Security implications have been considered
 - [ ] Performance impact is acceptable
+- [ ] **Tagging requirements understood** (for hotfix/migration-critical PRs)
+- [ ] **Proper labels applied** (`hotfix` or `migration-critical` if applicable)

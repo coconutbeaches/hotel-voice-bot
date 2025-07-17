@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import { readFileSync, writeFileSync, readdirSync, statSync } from 'fs';
-import { join, extname } from 'path';
+import { readFileSync, writeFileSync, statSync } from 'fs';
+import { extname } from 'path';
 
 import { glob } from 'glob';
 
@@ -10,6 +10,7 @@ import { glob } from 'glob';
  *
  * Usage:
  *   npm run docs:touch
+ *   npm run docs:touch -- --check  # Check if timestamps are fresh (within 24h of commit)
  *   CI_COMMIT_DATE=2024-01-15 npm run docs:touch
  */
 
@@ -31,6 +32,54 @@ function getUpdateDate(): string {
 
   // Otherwise use current date
   return new Date().toISOString().split('T')[0];
+}
+
+/**
+ * Extract timestamp from file content based on file type
+ */
+function extractTimestamp(filePath: string): string | null {
+  try {
+    const content = readFileSync(filePath, 'utf8');
+    const ext = extname(filePath).toLowerCase();
+    
+    switch (ext) {
+      case '.md': {
+        const match = content.match(/<!--\s*Last Updated:\s*(\d{4}-\d{2}-\d{2})\s*-->/i);
+        return match ? match[1] : null;
+      }
+      case '.sql': {
+        const match = content.match(/--\s*Last Updated:\s*(\d{4}-\d{2}-\d{2})/i);
+        return match ? match[1] : null;
+      }
+      case '.yaml':
+      case '.yml': {
+        const match = content.match(/#\s*Last Updated:\s*(\d{4}-\d{2}-\d{2})/i);
+        return match ? match[1] : null;
+      }
+      default:
+        return null;
+    }
+  } catch (error) {
+    console.error(`Error extracting timestamp from ${filePath}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Check if timestamp is within 24 hours of the reference date
+ */
+function isTimestampFresh(timestamp: string, referenceDate: string): boolean {
+  const timestampDate = new Date(timestamp);
+  const refDate = new Date(referenceDate);
+  
+  if (isNaN(timestampDate.getTime()) || isNaN(refDate.getTime())) {
+    return false;
+  }
+  
+  const timeDiff = Math.abs(refDate.getTime() - timestampDate.getTime());
+  const hoursDiff = timeDiff / (1000 * 60 * 60);
+  
+  return hoursDiff <= 24;
 }
 
 /**
@@ -183,9 +232,90 @@ function processFile(filePath: string, updateDate: string): boolean {
 }
 
 /**
+ * Check if all documentation timestamps are fresh (within 24h of commit date)
+ */
+async function checkTimestamps() {
+  const referenceDate = getUpdateDate();
+  console.log(`Checking documentation timestamps against: ${referenceDate}`);
+
+  const patterns = [
+    'docs/runbooks/**/*.md',
+    'packages/**/migrations/*.sql',
+    'openapi.yaml',
+    '*.md',
+  ];
+
+  let totalFiles = 0;
+  let staleFiles = 0;
+  const staleFilesList: string[] = [];
+
+  for (const pattern of patterns) {
+    try {
+      const files = glob.sync(pattern, {
+        ignore: ['node_modules/**', '.git/**', 'dist/**', 'build/**'],
+        absolute: true,
+      });
+
+      console.log(`\nChecking pattern: ${pattern}`);
+      console.log(`Found ${files.length} files`);
+
+      for (const file of files) {
+        try {
+          const stat = statSync(file);
+          if (stat.isFile()) {
+            totalFiles++;
+            const timestamp = extractTimestamp(file);
+            
+            if (!timestamp) {
+              staleFiles++;
+              staleFilesList.push(file);
+              console.log(`  ✗ Missing timestamp: ${file}`);
+            } else if (!isTimestampFresh(timestamp, referenceDate)) {
+              staleFiles++;
+              staleFilesList.push(file);
+              console.log(`  ✗ Stale timestamp (${timestamp}): ${file}`);
+            } else {
+              console.log(`  ✓ Fresh timestamp (${timestamp}): ${file}`);
+            }
+          }
+        } catch (error) {
+          console.error(`  ✗ Error checking ${file}:`, error);
+          staleFiles++;
+          staleFilesList.push(file);
+        }
+      }
+    } catch (error) {
+      console.error(`Error processing pattern ${pattern}:`, error);
+    }
+  }
+
+  console.log(`\n📊 Check results:`);
+  console.log(`   Total files checked: ${totalFiles}`);
+  console.log(`   Fresh timestamps: ${totalFiles - staleFiles}`);
+  console.log(`   Stale/missing timestamps: ${staleFiles}`);
+  
+  if (staleFiles > 0) {
+    console.log(`\n❌ Files with stale/missing timestamps:`);
+    staleFilesList.forEach(file => console.log(`   - ${file}`));
+    console.log(`\nRun 'npm run docs:touch' to update timestamps.`);
+    process.exit(1);
+  } else {
+    console.log(`\n✅ All timestamps are fresh!`);
+  }
+}
+
+/**
  * Main function to update all documentation timestamps
  */
 async function main() {
+  const args = process.argv.slice(2);
+  const isCheckMode = args.includes('--check');
+  
+  if (isCheckMode) {
+    await checkTimestamps();
+    return;
+  }
+  
   const updateDate = getUpdateDate();
   console.log(`Updating documentation timestamps to: ${updateDate}`);
 
