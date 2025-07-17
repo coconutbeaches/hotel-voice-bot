@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: hotel-voice-bot
+  labels:
+    name: hotel-voice-bot
+    environment: production

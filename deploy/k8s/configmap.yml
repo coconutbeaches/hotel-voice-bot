@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hotel-voice-bot-config
+  namespace: hotel-voice-bot
+data:
+  NODE_ENV: "production"
+  PORT: "3000"
+  PROMETHEUS_PORT: "9090"
+  LOG_LEVEL: "info"
+  SENTRY_ENVIRONMENT: "production"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+  OTEL_SERVICE_NAME: "hotel-voice-bot"
+  OTEL_RESOURCE_ATTRIBUTES: "service.name=hotel-voice-bot,service.version=1.0.0"

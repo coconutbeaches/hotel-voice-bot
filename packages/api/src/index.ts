@@ -8,6 +8,7 @@ import healthRouter from './routes/health.js';
 import whatsappRouter from './routes/whatsapp.js';
 import swaggerSpec from './swagger.js';
 import { logger } from './utils/logger.js';
+import { setupWaha } from './scripts/setupWaha.js';
 
 const app: express.Application = express();
 const PORT = process.env.PORT || 3000;
@@ -15,6 +16,18 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(helmet());
 app.use(cors());
+
+// Raw body middleware for WhatsApp webhook verification
+app.use('/api/whatsapp/webhook', (req, res, next) => {
+  req.rawBody = '';
+  req.on('data', (chunk) => {
+    req.rawBody += chunk;
+  });
+  req.on('end', () => {
+    next();
+  });
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -29,6 +42,7 @@ app.use('/api/whatsapp', whatsappRouter);
 app.use(errorHandler);
 
 app.listen(PORT, () => {
+setupWaha();
   logger.info(`Server running on port ${PORT}`);
   logger.info(
     `API documentation available at http://localhost:${PORT}/api-docs`

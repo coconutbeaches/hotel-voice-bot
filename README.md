@@ -1,3 +1,111 @@
+# Hotel Voice Bot Integrations
+
+## Overview
+
+This module manages integrations for the Hotel Voice Bot, including interfacing with external PMS and APIs for room service and payments.
+
+## Features
+- PMS Integration: Availability, Booking Creation, Guest Folio
+- Room Service/Order API Integration
+- Payment Gateway for Upsells
+- Caching Mechanisms
+- Circuit-Breaker Pattern
+- Monitoring and Logging
+
+## Configuration
+
+### Environment Variables
+- `SUPABASE_URL`: URL for Supabase instance
+- `SUPABASE_ANON_KEY`: Supabase anonymous key
+- `OPENAI_API_KEY`: API key for OpenAI
+
+### PMS Configuration
+- `baseUrl`: Base URL for PMS API
+- `apiKey`: API key for accessing PMS
+- `timeout`: Request timeout in ms
+- `retryAttempts`: Number of retry attempts for failed requests
+
+### Circuit Breaker Configuration
+- `failureThreshold`: Number of failures to trigger open state
+- `recoveryTimeout`: Time to wait before retrying in half-open state
+
+## Usage
+
+### PMS Service
+```typescript
+import { PMSService, PMSConfig } from './src/pms/pms-service.js';
+import { cacheManager } from './src/core/cache-manager.js';
+
+const config: PMSConfig = {
+  baseUrl: 'https://example.com/api',
+  apiKey: 'your-api-key',
+  timeout: 5000,
+  retryAttempts: 3,
+  circuitBreaker: {
+    failureThreshold: 3,
+    recoveryTimeout: 3000,
+    monitoringPeriod: 60000,
+    halfOpenMaxCalls: 2,
+    timeout: 1000,
+  },
+};
+
+const pmsService = new PMSService(config, cacheManager);
+
+pmsService.getAvailability('Suite', '2025-08-01', '2025-08-02')
+  .then(response => console.log('Availability:', response))
+  .catch(error => console.error('Error fetching availability:', error));
+```
+
+### Monitoring and Logging
+
+Logging and monitoring are extensively used in all integration calls via the `IntegrationLogger` and `MonitoringMiddleware`. Logs include details about API calls, circuit breaker states, cache hits/misses, and performance metrics.
+
+#### Logging API Calls
+```typescript
+integrationLogger.logApiCall(
+  'pmsService',
+  'getAvailability',
+  'GET',
+  '/availability',
+  200,
+  150,
+);
+```
+
+This logs API calls, capturing HTTP method, endpoint, response status code, and duration.
+
+#### Monitoring
+
+- **API Metrics**: Collects duration and status for each API call.
+- **Circuit Breaker**: Logs state transitions and tracks failure counts.
+- **Cache Events**: Logs cache hits, misses, and invalidations.
+
+```
+logging:
+  level: info # Logging level
+  console: true # Log to console
+  files: # File-based logging paths
+    - integration-errors.log
+    - integration-combined.log
+metrics:
+  enabled: true
+  flushPeriod: 60s
+```
+
+### Running Tests
+
+Tests are implemented using Jest for unit testing of core functionalities and integration with external services. Mocking is used where appropriate to mimic external dependencies.
+
+To execute tests, run:
+```bash
+npm test
+```
+
+## Contribution
+
+Please contribute by forking the repository and making a Pull Request. Ensure all new code paths are covered by tests.
+
 # Hotel Voice Bot
 
 AI-powered hotel voice bot with WhatsApp integration built with Node.js, TypeScript, and OpenAI.

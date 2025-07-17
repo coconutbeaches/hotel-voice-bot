@@ -20,7 +20,8 @@
     "@supabase/supabase-js": "^2.45.0",
     "axios": "^1.7.2",
     "dotenv": "^16.4.5",
-    "winston": "^3.13.1"
+    "winston": "^3.13.1",
+    "lru-cache": "^10.2.2"
   },
   "devDependencies": {
     "@types/jest": "^29.5.12",

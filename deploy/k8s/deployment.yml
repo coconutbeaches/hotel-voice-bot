@@ -1,0 +1,148 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hotel-voice-bot
+  namespace: hotel-voice-bot
+  labels:
+    app: hotel-voice-bot
+    version: v1
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: hotel-voice-bot
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: hotel-voice-bot
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: hotel-voice-bot
+      containers:
+      - name: hotel-voice-bot
+        image: your-registry/hotel-voice-bot:latest
+        ports:
+        - containerPort: 3000
+          name: http
+        - containerPort: 9090
+          name: metrics
+        env:
+        - name: NODE_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: hotel-voice-bot-config
+              key: NODE_ENV
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: hotel-voice-bot-config
+              key: PORT
+        - name: PROMETHEUS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: hotel-voice-bot-config
+              key: PROMETHEUS_PORT
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: hotel-voice-bot-config
+              key: LOG_LEVEL
+        - name: SENTRY_ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: hotel-voice-bot-config
+              key: SENTRY_ENVIRONMENT
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          valueFrom:
+            configMapKeyRef:
+              name: hotel-voice-bot-config
+              key: OTEL_EXPORTER_OTLP_ENDPOINT
+        - name: OTEL_SERVICE_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: hotel-voice-bot-config
+              key: OTEL_SERVICE_NAME
+        - name: OTEL_RESOURCE_ATTRIBUTES
+          valueFrom:
+            configMapKeyRef:
+              name: hotel-voice-bot-config
+              key: OTEL_RESOURCE_ATTRIBUTES
+        - name: SENTRY_DSN
+          valueFrom:
+            secretKeyRef:
+              name: hotel-voice-bot-secrets
+              key: SENTRY_DSN
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: hotel-voice-bot-secrets
+              key: OPENAI_API_KEY
+        - name: WHATSAPP_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: hotel-voice-bot-secrets
+              key: WHATSAPP_TOKEN
+        - name: SUPABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: hotel-voice-bot-secrets
+              key: SUPABASE_URL
+        - name: SUPABASE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: hotel-voice-bot-secrets
+              key: SUPABASE_KEY
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 5
+          failureThreshold: 3
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1001
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: logs
+          mountPath: /app/logs
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: logs
+        emptyDir: {}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: hotel-voice-bot
+  namespace: hotel-voice-bot
+  labels:
+    app: hotel-voice-bot

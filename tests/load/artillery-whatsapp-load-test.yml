@@ -1,0 +1,220 @@
+config:
+  target: 'http://localhost:3000'
+  phases:
+    - duration: 10
+      arrivalRate: 10
+      name: "Warm up"
+    - duration: 30
+      arrivalRate: 100
+      name: "Load test - 1000 concurrent chats"
+    - duration: 60
+      arrivalRate: 200
+      name: "Peak load"
+    - duration: 10
+      arrivalRate: 10
+      name: "Cool down"
+  
+  # Environment variables
+  environments:
+    production:
+      target: 'https://api.hotel-voice-bot.com'
+    staging:
+      target: 'https://staging-api.hotel-voice-bot.com'
+    development:
+      target: 'http://localhost:3000'
+  
+  # Default environment
+  defaultEnvironment: development
+  
+  # Processor configuration
+  processor: './artillery-processor.js'
+  
+  # Variables
+  variables:
+    webhookToken: 'test-webhook-token'
+    pmsApiKey: 'test-pms-api-key'
+    
+  # Payload configuration
+  payload:
+    - path: './test-data/phone-numbers.csv'
+      fields:
+        - phoneNumber
+    - path: './test-data/conversation-patterns.json'
+      
+  # Metrics and monitoring
+  plugins:
+    metrics-by-endpoint:
+      useOnlyRequestNames: true
+    cloudwatch:
+      namespace: 'HotelVoiceBot/LoadTest'
+      region: 'us-east-1'
+      dimensions:
+        - name: 'Environment'
+          value: '{{ $environment }}'
+        - name: 'TestType'
+          value: 'WhatsAppWebhook'
+    
+  # Performance expectations
+  expect:
+    - statusCode: 200
+    - contentType: text/plain
+    - hasProperty: body
+    - maxResponseTime: 2000
+    
+  # TLS configuration
+  tls:
+    rejectUnauthorized: false
+    
+  # HTTP configuration
+  http:
+    timeout: 30
+    pool: 50
+    maxSockets: 100
+    extendedMetrics: true
+    
+  # Ensure configuration
+  ensure:
+    - p95: 1000  # 95th percentile response time under 1 second
+    - p99: 2000  # 99th percentile response time under 2 seconds
+    - maxErrorRate: 0.1  # Error rate under 0.1%
+    - minRps: 100  # Minimum requests per second
+
+scenarios:
+  - name: "WhatsApp Webhook Processing"
+    weight: 70
+    flow:
+      - function: "generatePhoneNumber"
+      - function: "selectConversationPattern"
+      - loop:
+          - post:
+              url: "/api/whatsapp/webhook?token={{ webhookToken }}"
+              headers:
+                Content-Type: "application/json"
+              beforeRequest: "prepareWebhookMessage"
+              json:
+                id: "{{ messageId }}"
+                timestamp: "{{ timestamp }}"
+                from: "{{ phoneNumber }}@c.us"
+                body: "{{ messageBody }}"
+                type: "text"
+                fromMe: false
+                hasMedia: false
+              capture:
+                - json: "$.messageId"
+                  as: "responseMessageId"
+              expect:
+                - statusCode: 200
+                - equals:
+                    - "EVENT_RECEIVED"
+                    - "{{ body }}"
+          - think: 2  # Wait 2 seconds between messages
+        count: "{{ conversationLength }}"
+      - function: "simulatePMSIntegration"
+      - think: 5  # Wait 5 seconds between conversations
+      
+  - name: "Media Message Processing"
+    weight: 20
+    flow:
+      - function: "generatePhoneNumber"
+      - function: "selectMediaType"
+      - post:
+          url: "/api/whatsapp/webhook?token={{ webhookToken }}"
+          headers:
+            Content-Type: "application/json"
+          beforeRequest: "prepareMediaMessage"
+          json:
+            id: "{{ messageId }}"
+            timestamp: "{{ timestamp }}"
+            from: "{{ phoneNumber }}@c.us"
+            body: "{{ messageBody }}"
+            type: "{{ mediaType }}"
+            fromMe: false
+            hasMedia: "{{ hasMedia }}"
+            mediaUrl: "{{ mediaUrl }}"
+            mimeType: "{{ mimeType }}"
+          expect:
+            - statusCode: 200
+            - equals:
+                - "EVENT_RECEIVED"
+                - "{{ body }}"
+      - think: 1
+      
+  - name: "Error Handling Tests"
+    weight: 5
+    flow:
+      - function: "generatePhoneNumber"
+      # Test invalid webhook token
+      - post:
+          url: "/api/whatsapp/webhook?token=invalid-token"
+          headers:
+            Content-Type: "application/json"
+          json:
+            id: "{{ messageId }}"
+            timestamp: "{{ timestamp }}"
+            from: "{{ phoneNumber }}@c.us"
+            body: "Test message"
+            type: "text"
+            fromMe: false
+            hasMedia: false
+          expect:
+            - statusCode: 403
+      # Test malformed payload
+      - post:
+          url: "/api/whatsapp/webhook?token={{ webhookToken }}"
+          headers:
+            Content-Type: "application/json"
+          body: "invalid json"
+          expect:
+            - statusCode: [400, 404, 500]
+      - think: 1
+      
+  - name: "High Frequency Messages"
+    weight: 5
+    flow:
+      - function: "generatePhoneNumber"
+      - loop:
+          - post:
+              url: "/api/whatsapp/webhook?token={{ webhookToken }}"
+              headers:
+                Content-Type: "application/json"
+              beforeRequest: "prepareRapidMessage"
+              json:
+                id: "{{ messageId }}"
+                timestamp: "{{ timestamp }}"
+                from: "{{ phoneNumber }}@c.us"
+                body: "{{ messageBody }}"
+                type: "text"
+                fromMe: false
+                hasMedia: false
+              expect:
+                - statusCode: 200
+                - equals:
+                    - "EVENT_RECEIVED"
+                    - "{{ body }}"
+          - think: 0.1  # Very short delay
+        count: 50
+      - think: 10  # Wait longer after burst
+      
+# Custom headers for all requests
+headers:
+  User-Agent: "Artillery-LoadTest/1.0"
+  Accept: "application/json"
+  
+# Before and after hooks
+before:
+  flow:
+    - log: "Starting WhatsApp webhook load test"
+    - get:
+        url: "/api/health"
+        expect:
+          - statusCode: 200
+    - function: "setupTestEnvironment"
+    
+after:
+  flow:
+    - log: "Completed WhatsApp webhook load test"
+    - function: "cleanupTestEnvironment"
+    
+# Debugging and logging
+debug: false
+quiet: false
