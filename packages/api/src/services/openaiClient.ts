@@ -1,21 +1,39 @@
-import { Configuration, OpenAIApi } from 'openai';
+import { Readable } from 'stream';
+
+import OpenAI from 'openai';
+
 import { logger } from '../utils/logger.js';
 
 if (!process.env.OPENAI_API_KEY) {
   throw new Error('OPENAI_API_KEY is missing from environment variables');
 }
 
-const configuration = new Configuration({
+const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
-const openai = new OpenAIApi(configuration);
 
 export const openaiClient = {
   async transcribeAudio(audioBuffer: Buffer): Promise<string> {
     try {
-      // Implementation here will call the appropriate transcribe API from OpenAI
-      const transcription = 'Transcribed text'; // Placeholder for actual API call
-      return transcription;
+      // Create a Blob-like object for the OpenAI API
+      const file = {
+        arrayBuffer: async () => audioBuffer,
+        stream: () => Readable.from(audioBuffer),
+        blob: async () => new Blob([audioBuffer]),
+        name: 'audio.mp3',
+        size: audioBuffer.length,
+      } as any;
+
+      const transcription = await openai.audio.transcriptions.create({
+        file: file,
+        model: 'whisper-1',
+      });
+
+      if (process.env.NODE_ENV === 'development') {
+        logger.info('Transcription result:', transcription.text);
+      }
+
+      return transcription.text;
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
         logger.error('Error transcribing audio:', error);
@@ -26,9 +44,20 @@ export const openaiClient = {
 
   async textToSpeech(text: string): Promise<Buffer> {
     try {
-      // Implementation here will call the appropriate text to speech API
-      const audioBuffer = Buffer.from(''); // Placeholder for actual API call
-      return audioBuffer;
+      const mp3 = await openai.audio.speech.create({
+        model: 'tts-1',
+        voice: 'alloy',
+        input: text,
+      });
+
+      // Convert the response to a buffer
+      const buffer = Buffer.from(await mp3.arrayBuffer());
+
+      if (process.env.NODE_ENV === 'development') {
+        logger.info('TTS generated audio buffer size:', buffer.length);
+      }
+
+      return buffer;
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
         logger.error('Error converting text to speech:', error);
@@ -39,12 +68,29 @@ export const openaiClient = {
 
   async generateResponse(prompt: string): Promise<string> {
     try {
-      const response = await openai.createCompletion({
-        model: 'text-davinci-003',
-        prompt,
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-3.5-turbo',
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You are a helpful hotel concierge assistant. Keep responses brief and friendly.',
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
         max_tokens: 150,
       });
-      return response.data.choices[0].text.trim();
+
+      const response = completion.choices[0].message.content || '';
+
+      if (process.env.NODE_ENV === 'development') {
+        logger.info('Generated response:', response);
+      }
+
+      return response.trim();
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
         logger.error('Error generating response:', error);
