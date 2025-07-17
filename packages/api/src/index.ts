@@ -24,9 +24,9 @@ app.use(cors());
 
 // Raw body middleware for WhatsApp webhook verification
 app.use('/api/whatsapp/webhook', (req, res, next) => {
-  req.rawBody = '';
+  (req as any).rawBody = '';
   req.on('data', chunk => {
-    req.rawBody += chunk;
+    (req as any).rawBody += chunk;
   });
   req.on('end', () => {
     next();

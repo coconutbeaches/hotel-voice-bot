@@ -33,8 +33,8 @@ const router: express.Router = Router();
 // Initialize services
 const faqService = new FAQService();
 const messageLogger = new MessageLogger();
-// TODO: Re-enable OpenAI integration
-const openaiClient = null;
+// Import OpenAI client
+import { openaiClient } from '../services/openaiClient.js';
 
 // Route for verifying webhook token
 router.get('/webhook', (req, res) => {
@@ -158,7 +158,7 @@ async function processIncomingMessage(message: WAHAMessage) {
     // Send response based on original message type
     if (messageType === 'guest_audio') {
       // TODO: Re-enable OpenAI text-to-speech
-      let audioBuffer = null;
+      let audioBuffer: Buffer | null = null;
       if (openaiClient) {
         audioBuffer = await openaiClient.textToSpeech(responseText);
       }

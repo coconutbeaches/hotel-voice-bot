@@ -94,12 +94,12 @@ export class TemplateService {
 
       const components = [
         {
-          type: 'body',
+          type: 'body' as const,
           parameters: [
-            { type: 'text', text: guestName },
-            { type: 'text', text: roomNumber },
-            { type: 'text', text: checkInDate },
-            { type: 'text', text: checkOutDate },
+            { type: 'text' as const, text: guestName },
+            { type: 'text' as const, text: roomNumber },
+            { type: 'text' as const, text: checkInDate },
+            { type: 'text' as const, text: checkOutDate },
           ],
         },
       ];
@@ -146,11 +146,11 @@ export class TemplateService {
 
       const components = [
         {
-          type: 'body',
+          type: 'body' as const,
           parameters: [
-            { type: 'text', text: requestType },
-            { type: 'text', text: requestId },
-            { type: 'text', text: estimatedTime },
+            { type: 'text' as const, text: requestType },
+            { type: 'text' as const, text: requestId },
+            { type: 'text' as const, text: estimatedTime },
           ],
         },
       ];
@@ -198,11 +198,11 @@ export class TemplateService {
 
       const components = [
         {
-          type: 'body',
+          type: 'body' as const,
           parameters: [
-            { type: 'text', text: requestType },
-            { type: 'text', text: requestId },
-            { type: 'text', text: status },
+            { type: 'text' as const, text: requestType },
+            { type: 'text' as const, text: requestId },
+            { type: 'text' as const, text: status },
           ],
         },
       ];
@@ -210,9 +210,9 @@ export class TemplateService {
       // Add additional info if provided
       if (additionalInfo) {
         components.push({
-          type: 'body',
+          type: 'body' as const,
           parameters: [
-            { type: 'text', text: additionalInfo },
+            { type: 'text' as const, text: additionalInfo },
           ],
         });
       }
@@ -259,11 +259,11 @@ export class TemplateService {
 
       const components = [
         {
-          type: 'body',
+          type: 'body' as const,
           parameters: [
-            { type: 'text', text: guestName },
-            { type: 'text', text: roomNumber },
-            { type: 'text', text: checkOutTime },
+            { type: 'text' as const, text: guestName },
+            { type: 'text' as const, text: roomNumber },
+            { type: 'text' as const, text: checkOutTime },
           ],
         },
       ];
@@ -411,10 +411,10 @@ export class TemplateService {
 
       const components = [
         {
-          type: 'body',
+          type: 'body' as const,
           parameters: [
-            { type: 'text', text: message },
-            { type: 'text', text: contactInfo },
+            { type: 'text' as const, text: message },
+            { type: 'text' as const, text: contactInfo },
           ],
         },
       ];
@@ -460,10 +460,10 @@ export class TemplateService {
 
       const components = [
         {
-          type: 'body',
+          type: 'body' as const,
           parameters: [
-            { type: 'text', text: guestName },
-            { type: 'text', text: serviceType },
+            { type: 'text' as const, text: guestName },
+            { type: 'text' as const, text: serviceType },
           ],
         },
       ];
