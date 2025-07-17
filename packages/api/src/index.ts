@@ -5,6 +5,7 @@ import swaggerUi from 'swagger-ui-express';
 
 import { errorHandler } from './middleware/errorHandler.js';
 import healthRouter from './routes/health.js';
+import voiceRouter from './routes/voice.js';
 import whatsappRouter from './routes/whatsapp.js';
 import { setupWaha } from './scripts/setupWaha.js';
 import swaggerSpec from './swagger.js';
@@ -41,6 +42,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Routes
 app.use('/api/health', healthRouter);
+app.use('/api/voice', voiceRouter);
 app.use('/api/whatsapp', whatsappRouter);
 
 // Error handling

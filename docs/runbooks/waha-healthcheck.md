@@ -217,6 +217,16 @@ fly scale count 0 -a hotelbot
 fly scale count 1 -a hotelbot
 ```
 
+## Fallback Mode Behavior (No WAHA)
+
+If WAHA_API_URL is unreachable or invalid:
+- App logs `[WAHA] Continuing without WAHA integration`
+- Server continues to run and respond to /health
+- WhatsApp features will return stubbed data or no-ops
+- This is **expected behavior** in staging, testing, or partial prod rollout
+
+⚠️ WAHA should be reconnected when ready via proper WAHA_API_URL and secrets
+
 ## Additional Resources
 
 - [WAHA API Documentation](https://waha.devlike.pro/)
