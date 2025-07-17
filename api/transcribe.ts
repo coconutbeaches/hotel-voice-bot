@@ -1,13 +1,20 @@
 import fs from 'fs/promises';
 
 import { IncomingForm } from 'formidable';
-import multer from 'multer';
+import { NextApiRequest, NextApiResponse } from 'next';
 
 import { transcribeAudio } from '../packages/api/src/services/openaiClient';
 
-const upload = multer({ dest: 'uploads/' });
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
 
-export default async function handler(req, res) {
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
   if (req.method === 'POST') {
     const form = new IncomingForm();
 
@@ -16,18 +23,25 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: 'Error parsing form' });
       }
 
-      const filePath = files.audio.filepath;
+      const file = Array.isArray(files.audio) ? files.audio[0] : files.audio;
+      if (!file) {
+        return res.status(400).json({ error: 'No audio file provided' });
+      }
+
+      const filePath = file.filepath;
 
       try {
         const transcription = await transcribeAudio(filePath);
         res.json({ transcription });
       } catch (error) {
+        console.error('Transcription error:', error);
         res.status(500).json({ error: 'Error processing audio file.' });
       } finally {
         await fs.unlink(filePath);
       }
     });
   } else {
+    res.setHeader('Allow', ['POST']);
     res.status(405).json({ error: 'Method not allowed' });
   }
 }
