@@ -7,7 +7,8 @@ import {
   FunctionCall,
   HotelInfo 
 } from '@hotel-voice-bot/shared';
-import { OpenAIClient } from '@hotel-voice-bot/integrations/openai';
+// TODO: Re-enable OpenAI integration
+// import { OpenAIClient } from '@hotel-voice-bot/integrations';
 import { IntentRouter } from './intentRouter.js';
 import { PromptBuilder } from './promptBuilder.js';
 import { FunctionCallHandler } from './functionCallHandler.js';
@@ -21,7 +22,7 @@ export class NLPController {
   private functionCallHandler: FunctionCallHandler;
   private escalationHandler: EscalationHandler;
   private conversationMemory: ConversationMemory;
-  private openaiClient: OpenAIClient;
+  private openaiClient: any; // OpenAI client stub
 
   constructor(
     intents: any[],
@@ -33,7 +34,8 @@ export class NLPController {
     this.functionCallHandler = new FunctionCallHandler();
     this.escalationHandler = new EscalationHandler();
     this.conversationMemory = new ConversationMemory();
-    this.openaiClient = new OpenAIClient();
+    // TODO: Re-enable OpenAI integration
+    this.openaiClient = null;
   }
 
   public async processMessage(
@@ -121,6 +123,16 @@ export class NLPController {
     conversation: Conversation
   ): Promise<LLMResponse> {
     try {
+      // TODO: Re-enable OpenAI integration
+      if (!this.openaiClient) {
+        logger.warn('OpenAI client not available, returning fallback response');
+        return {
+          content: 'I apologize, but I\'m currently unable to process your request. Please contact our staff directly for assistance.',
+          shouldEscalate: true,
+          escalationReason: 'openai_unavailable'
+        };
+      }
+      
       const response = await this.openaiClient.generateResponse(prompt);
       
       // Parse response for structured output

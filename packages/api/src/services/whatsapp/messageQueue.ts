@@ -1,4 +1,6 @@
-import { supabase } from '@hotel-voice-bot/integrations/supabase';
+// TODO: Re-enable Supabase integration
+// import { supabase } from '@hotel-voice-bot/integrations';
+const supabase = null as any;
 import type {
   WhatsAppOutgoingMessage,
   MessageQueueJob,

@@ -1,7 +1,8 @@
 import express, { Router } from 'express';
 
 import axios from 'axios';
-import { OpenAIClient } from '@hotel-voice-bot/integrations/openai';
+// TODO: Re-enable OpenAI integration
+// import { OpenAIClient } from '@hotel-voice-bot/integrations';
 
 import { logger } from '../utils/logger.js';
 import { wahaClient, WAHAMessage } from '../services/whatsapp/wahaClient.js';
@@ -32,7 +33,8 @@ const router: express.Router = Router();
 // Initialize services
 const faqService = new FAQService();
 const messageLogger = new MessageLogger();
-const openaiClient = new OpenAIClient();
+// Import OpenAI client
+import { openaiClient } from '../services/openaiClient.js';
 
 // Route for verifying webhook token
 router.get('/webhook', (req, res) => {
@@ -96,6 +98,13 @@ async function processIncomingMessage(message: WAHAMessage) {
         return;
       }
 
+      // TODO: Re-enable OpenAI transcription
+      if (!openaiClient) {
+        logger.warn('OpenAI client not available, cannot transcribe audio');
+        await wahaClient.sendTextMessage(whatsappNumber, 'Voice messages are temporarily unavailable. Please send a text message instead.');
+        return;
+      }
+      
       // Transcribe audio using Whisper
       userText = await openaiClient.transcribeAudio(audioBuffer);
       if (!userText || userText.includes('Sorry, I could not transcribe')) {
@@ -148,8 +157,11 @@ async function processIncomingMessage(message: WAHAMessage) {
 
     // Send response based on original message type
     if (messageType === 'guest_audio') {
-      // Generate voice response
-      const audioBuffer = await openaiClient.textToSpeech(responseText);
+      // TODO: Re-enable OpenAI text-to-speech
+      let audioBuffer: Buffer | null = null;
+      if (openaiClient) {
+        audioBuffer = await openaiClient.textToSpeech(responseText);
+      }
       if (audioBuffer) {
         await wahaClient.sendVoiceMessage(whatsappNumber, audioBuffer);
         
