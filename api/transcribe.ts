@@ -1,20 +1,11 @@
 import fs from 'fs/promises';
 
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { IncomingForm } from 'formidable';
-import { NextApiRequest, NextApiResponse } from 'next';
 
-import { transcribeAudio } from '../packages/api/src/services/openaiClient';
+import { transcribeAudio } from '../packages/api/src/services/openaiClient.js';
 
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
-
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'POST') {
     const form = new IncomingForm();
 
