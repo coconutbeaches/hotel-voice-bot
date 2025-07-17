@@ -1,5 +1,8 @@
 {
   "buildCommand": "echo 'No build required'",
+  "outputDirectory": "static",
+  "cleanUrls": true,
+  "trailingSlash": false,
   "functions": {
     "api/transcribe.ts": {
       "maxDuration": 30
