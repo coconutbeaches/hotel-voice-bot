@@ -1,14 +1,1 @@
-{
-  "builds": [
-    {
-      "src": "packages/api/index.ts",
-      "use": "@vercel/node"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "packages/api/index.ts"
-    }
-  ]
-}
+{}
