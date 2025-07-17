@@ -23,8 +23,8 @@ RUN pnpm run build
 # Production stage
 FROM node:18-alpine AS production
 
-# Install pnpm
-RUN npm install -g pnpm
+# Install pnpm and curl
+RUN npm install -g pnpm && apk add --no-cache curl
 
 # Create app directory
 WORKDIR /app
@@ -33,8 +33,8 @@ WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY packages/*/package.json ./packages/*/
 
-# Install production dependencies only
-RUN pnpm install --prod --frozen-lockfile
+# Install production dependencies only (skip scripts to avoid husky)
+RUN pnpm install --prod --frozen-lockfile --ignore-scripts
 
 # Copy built application
 COPY --from=builder /app/packages/*/dist ./packages/*/dist/
