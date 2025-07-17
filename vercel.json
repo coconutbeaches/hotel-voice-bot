@@ -1,13 +1,8 @@
 {
+  "buildCommand": "echo 'No build required'",
   "functions": {
     "api/transcribe.ts": {
       "maxDuration": 30
     }
-  },
-  "rewrites": [
-    {
-      "source": "/public/(.*)",
-      "destination": "/public/$1"
-    }
-  ]
+  }
 }
