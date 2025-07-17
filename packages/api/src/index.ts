@@ -51,7 +51,7 @@ app.use(errorHandler);
 // Wrap server startup in try-catch
 try {
   console.log('About to start server...');
-  const server = app.listen(PORT, () => {
+  const server = app.listen(PORT, '0.0.0.0', () => {
     console.log('Server started successfully!');
 
     // Make WAHA setup non-blocking
