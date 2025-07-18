@@ -1,0 +1,36 @@
+
+✅ Objective: Fix 'The string did not match the expected pattern' error when POSTing audio/webm to /api/transcribe
+
+1. Check transcribeAudio() for misuse of OpenAI's API:
+   • If using `openai.audio.transcriptions.create`, make sure you're passing:
+     - a Node.js ReadableStream or fs.createReadStream(filepath)
+     - the correct 'file' field
+     - required params: model: 'whisper-1', file: ..., and optionally language
+
+2. Confirm the POST payload is being streamed properly:
+   • Log typeof and structure of the 'file' param
+   • Double check content-type detection and filename extension logic
+
+3. Inspect this call:
+   await openai.audio.transcriptions.create({
+     file: ___,
+     model: 'whisper-1',
+   });
+
+4. Add temp logging BEFORE calling OpenAI:
+   console.log('[DEBUG] Uploading to Whisper:', { contentType, tempFilePath });
+
+5. Add try/catch around the OpenAI call to log any response errors:
+   try {
+     const res = await openai.audio.transcriptions.create(...);
+   } catch (err) {
+     console.error('❌ Whisper API Error:', err);
+     return NextResponse.json({ error: err.message || err }, { status: 500 });
+   }
+
+6. Redeploy and retest:
+   • Push fix and confirm test-voice.html works
+   • Log should show Whisper success and valid transcription
+
+🚀 Commit with: fix: handle OpenAI file param and log transcription errors
+

@@ -64,6 +64,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await fs.writeFile(tempFilePath, audioBuffer);
 
     console.log(`[transcribe] Wrote temp file: ${tempFilePath}`);
+    console.log(`[DEBUG] Uploading to Whisper:`, {
+      contentType,
+      tempFilePath,
+      audioSize: audioBuffer.length,
+    });
 
     // Transcribe the audio
     const transcription = await transcribeAudio(tempFilePath);

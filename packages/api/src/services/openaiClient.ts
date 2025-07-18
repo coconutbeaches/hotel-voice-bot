@@ -1,4 +1,4 @@
-import { createReadStream } from 'fs';
+import { createReadStream, readFileSync } from 'fs';
 import { Readable } from 'stream';
 
 import OpenAI from 'openai';
@@ -104,18 +104,40 @@ export const openaiClient = {
 // Export for file-based transcription (used by Vercel Functions)
 export async function transcribeAudio(filePath: string): Promise<string> {
   try {
-    const fileStream = createReadStream(filePath);
+    logger.info('[DEBUG] Uploading to Whisper:', { filePath });
+
+    // Read the file as a buffer
+    const audioBuffer = readFileSync(filePath);
+
+    // Create a file object with proper metadata
+    const file = {
+      arrayBuffer: async () => audioBuffer,
+      stream: () => Readable.from(audioBuffer),
+      blob: async () => new Blob([audioBuffer]),
+      name: filePath.split('/').pop() || 'audio.webm',
+      size: audioBuffer.length,
+    } as any;
+
+    logger.info('[DEBUG] File object created:', {
+      name: file.name,
+      size: file.size,
+    });
 
     const transcription = await openai.audio.transcriptions.create({
-      file: fileStream as any,
+      file: file,
       model: 'whisper-1',
     });
 
     logger.info('Transcription result:', transcription.text);
 
     return transcription.text;
-  } catch (error) {
-    logger.error('Error transcribing audio from file:', error);
-    throw error;
+  } catch (error: any) {
+    logger.error('❌ Whisper API Error:', error);
+    logger.error('Error details:', error.response?.data || error.message);
+    throw new Error(
+      error.response?.data?.error?.message ||
+        error.message ||
+        'Unknown transcription error'
+    );
   }
 }
