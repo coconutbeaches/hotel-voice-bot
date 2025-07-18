@@ -20,7 +20,6 @@ class VoiceWidget extends HTMLElement {
 
   connectedCallback() {
     this.render();
-    this.setupEventListeners();
   }
 
   setupEventListeners() {
@@ -254,202 +253,261 @@ class VoiceWidget extends HTMLElement {
   }
 
   render() {
-    this.shadowRoot.innerHTML = `
-      <style>
-        :host {
-          position: fixed;
-          bottom: 30px;
-          right: 30px;
-          z-index: 9999;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }
+    // If this is the first render, create the full HTML structure
+    if (!this.shadowRoot.innerHTML) {
+      this.shadowRoot.innerHTML = `
+        <style>
+          :host {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 9999;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          }
+          
+          .widget-button {
+            background: linear-gradient(135deg, #29c6c2 0%, #1e9a96 100%);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            padding: 16px 24px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(41, 198, 194, 0.3);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          }
+          
+          .widget-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(41, 198, 194, 0.4);
+          }
+          
+          .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+          }
+          
+          .modal-content {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 50px rgba(0, 0, 0, 0.2);
+          }
+          
+          .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+          }
+          
+          .modal-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #333;
+            margin: 0;
+          }
+          
+          .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          
+          .close-btn:hover {
+            color: #333;
+          }
+          
+          .record-btn {
+            width: 100%;
+            background: #29c6c2;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            padding: 20px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+          }
+          
+          .record-btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+          }
+          
+          .record-btn.recording {
+            background: #ff4757;
+          }
+          
+          .status {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            font-size: 14px;
+            color: #666;
+            text-align: center;
+          }
+          
+          .transcript, .ai-response {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            min-height: 50px;
+            font-size: 14px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+          }
+          
+          .transcript {
+            border-left: 4px solid #29c6c2;
+          }
+          
+          .ai-response {
+            border-left: 4px solid #1e9a96;
+          }
+          
+          .transcript:empty::before {
+            content: "Your message will appear here...";
+            color: #999;
+            font-style: italic;
+          }
+          
+          .ai-response:empty::before {
+            content: "AI response will appear here...";
+            color: #999;
+            font-style: italic;
+          }
+          
+          .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            font-size: 14px;
+            display: none;
+          }
+          
+          .error.show {
+            display: block;
+          }
+          
+          .label {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+        </style>
         
-        .widget-button {
-          background: linear-gradient(135deg, #29c6c2 0%, #1e9a96 100%);
-          color: white;
-          border: none;
-          border-radius: 50px;
-          padding: 16px 24px;
-          font-size: 16px;
-          font-weight: 600;
-          cursor: pointer;
-          box-shadow: 0 4px 20px rgba(41, 198, 194, 0.3);
-          transition: all 0.3s ease;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
+        <button class="widget-button">
+          🎤 Talk to Coconut Beach
+        </button>
         
-        .widget-button:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 6px 25px rgba(41, 198, 194, 0.4);
-        }
-        
-        .modal {
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          background: rgba(0, 0, 0, 0.5);
-          display: ${this.isModalOpen ? 'flex' : 'none'};
-          align-items: center;
-          justify-content: center;
-          z-index: 10000;
-        }
-        
-        .modal-content {
-          background: white;
-          border-radius: 20px;
-          padding: 30px;
-          width: 90%;
-          max-width: 500px;
-          max-height: 80vh;
-          overflow-y: auto;
-          box-shadow: 0 10px 50px rgba(0, 0, 0, 0.2);
-        }
-        
-        .modal-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 20px;
-        }
-        
-        .modal-title {
-          font-size: 24px;
-          font-weight: 700;
-          color: #333;
-          margin: 0;
-        }
-        
-        .close-btn {
-          background: none;
-          border: none;
-          font-size: 24px;
-          cursor: pointer;
-          color: #666;
-          padding: 0;
-          width: 30px;
-          height: 30px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        
-        .close-btn:hover {
-          color: #333;
-        }
-        
-        .record-btn {
-          width: 100%;
-          background: ${this.state.recording ? '#ff4757' : '#29c6c2'};
-          color: white;
-          border: none;
-          border-radius: 50px;
-          padding: 20px;
-          font-size: 18px;
-          font-weight: 600;
-          cursor: pointer;
-          margin-bottom: 20px;
-          transition: all 0.3s ease;
-        }
-        
-        .record-btn:hover {
-          opacity: 0.9;
-          transform: translateY(-1px);
-        }
-        
-        .status {
-          background: #f8f9fa;
-          padding: 15px;
-          border-radius: 10px;
-          margin-bottom: 15px;
-          font-size: 14px;
-          color: #666;
-          text-align: center;
-        }
-        
-        .transcript, .ai-response {
-          background: #f8f9fa;
-          padding: 15px;
-          border-radius: 10px;
-          margin-bottom: 15px;
-          min-height: 50px;
-          font-size: 14px;
-          line-height: 1.5;
-        }
-        
-        .transcript {
-          border-left: 4px solid #29c6c2;
-        }
-        
-        .ai-response {
-          border-left: 4px solid #1e9a96;
-        }
-        
-        .transcript:empty::before {
-          content: "Your message will appear here...";
-          color: #999;
-          font-style: italic;
-        }
-        
-        .ai-response:empty::before {
-          content: "AI response will appear here...";
-          color: #999;
-          font-style: italic;
-        }
-        
-        .error {
-          background: #ffebee;
-          color: #c62828;
-          padding: 15px;
-          border-radius: 10px;
-          margin-bottom: 15px;
-          font-size: 14px;
-        }
-        
-        .label {
-          font-weight: 600;
-          color: #333;
-          margin-bottom: 5px;
-          font-size: 12px;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-        }
-      </style>
-      
-      <button class="widget-button">
-        🎤 Talk to Coconut Beach
-      </button>
-      
-      <div class="modal">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h3 class="modal-title">🥥 Coconut Beach Assistant</h3>
-            <button class="close-btn">×</button>
+        <div class="modal">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h3 class="modal-title">🥥 Coconut Beach Assistant</h3>
+              <button class="close-btn">×</button>
+            </div>
+            
+            <button class="record-btn">
+              🎤 Start Recording
+            </button>
+            
+            <div class="status">Ready to chat</div>
+            
+            <div class="error"></div>
+            
+            <div class="label">Your Message:</div>
+            <div class="transcript"></div>
+            
+            <div class="label">AI Response:</div>
+            <div class="ai-response"></div>
           </div>
-          
-          <button class="record-btn">
-            ${this.state.recording ? '⏹️ Stop Recording' : '🎤 Start Recording'}
-          </button>
-          
-          <div class="status">${this.state.status}</div>
-          
-          ${this.state.error ? `<div class="error">${this.state.error}</div>` : ''}
-          
-          <div class="label">Your Message:</div>
-          <div class="transcript">${this.state.transcript}</div>
-          
-          <div class="label">AI Response:</div>
-          <div class="ai-response">${this.state.aiResponse}</div>
         </div>
-      </div>
-    `;
+      `;
 
-    // Re-setup event listeners after re-render
-    if (this.shadowRoot) {
+      // Set up event listeners only once
       this.setupEventListeners();
+    }
+
+    // Update the dynamic content without recreating the DOM
+    this.updateContent();
+  }
+
+  updateContent() {
+    if (!this.shadowRoot) return;
+
+    // Update modal visibility
+    const modal = this.shadowRoot.querySelector('.modal');
+    if (modal) {
+      modal.style.display = this.isModalOpen ? 'flex' : 'none';
+    }
+
+    // Update record button
+    const recordBtn = this.shadowRoot.querySelector('.record-btn');
+    if (recordBtn) {
+      recordBtn.textContent = this.state.recording
+        ? '⏹️ Stop Recording'
+        : '🎤 Start Recording';
+      recordBtn.classList.toggle('recording', this.state.recording);
+    }
+
+    // Update status
+    const statusEl = this.shadowRoot.querySelector('.status');
+    if (statusEl) {
+      statusEl.textContent = this.state.status;
+    }
+
+    // Update error
+    const errorEl = this.shadowRoot.querySelector('.error');
+    if (errorEl) {
+      errorEl.textContent = this.state.error;
+      errorEl.classList.toggle('show', !!this.state.error);
+    }
+
+    // Update transcript
+    const transcriptEl = this.shadowRoot.querySelector('.transcript');
+    if (transcriptEl) {
+      transcriptEl.textContent = this.state.transcript;
+    }
+
+    // Update AI response
+    const aiResponseEl = this.shadowRoot.querySelector('.ai-response');
+    if (aiResponseEl) {
+      aiResponseEl.textContent = this.state.aiResponse;
     }
   }
 }
