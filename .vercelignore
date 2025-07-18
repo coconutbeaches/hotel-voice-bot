@@ -1,0 +1,15 @@
+# Exclude all packages from deployment
+packages/
+node_modules/
+.env*
+.git/
+.github/
+docs/
+tests/
+scripts/
+deploy/
+
+# Include only what we need
+!static/
+!api/
+!vercel.json
