@@ -97,19 +97,33 @@ class VoiceWidget extends HTMLElement {
       this.ws.onmessage = e => {
         try {
           const msg = JSON.parse(e.data);
-          console.log('Received message:', msg);
+          console.log('📨 Received message:', {
+            type: msg.type,
+            data: msg.data,
+            fullMessage: msg,
+          });
 
           if (msg.type === 'transcript') {
+            console.log('📝 Setting transcript:', msg.data);
             this.state.transcript = msg.data;
             this.render();
           } else if (msg.type === 'ai_response') {
+            console.log('🤖 Setting AI response:', msg.data);
             this.state.aiResponse = msg.data;
             this.render();
           } else if (msg.type === 'audio') {
+            console.log('🔊 Playing audio response');
             this.playAudio(msg.data);
           } else if (msg.type === 'error') {
+            console.log('❌ Setting error:', msg.data);
             this.state.error = msg.data;
             this.render();
+          } else if (msg.type === 'status') {
+            console.log('ℹ️ Status update:', msg.data);
+            this.state.status = msg.data;
+            this.render();
+          } else {
+            console.log('🔍 Unknown message type:', msg.type, msg);
           }
         } catch (err) {
           console.error('Error parsing WebSocket message:', err);
