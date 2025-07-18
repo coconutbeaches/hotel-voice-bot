@@ -159,9 +159,24 @@ class VoiceWidget extends HTMLElement {
       };
 
       this.mediaRecorder.onstop = () => {
+        console.log('🛑 Frontend: MediaRecorder stopped, cleaning up...');
         stream.getTracks().forEach(track => track.stop());
+
+        console.log('📶 Frontend: WebSocket state check:', {
+          wsExists: !!this.ws,
+          wsState: this.ws ? this.ws.readyState : 'N/A',
+          wsStateText: this.ws
+            ? ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'][this.ws.readyState]
+            : 'N/A',
+        });
+
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+          console.log('📱 Frontend: Sending stop message to backend...');
           this.ws.send(JSON.stringify({ type: 'stop' }));
+        } else {
+          console.warn(
+            '⚠️ Frontend: Cannot send stop message, WebSocket not open'
+          );
         }
       };
 
@@ -176,17 +191,28 @@ class VoiceWidget extends HTMLElement {
   }
 
   stopRecording() {
+    console.log('🛑 Frontend: Stopping recording...');
     this.state.recording = false;
     this.state.status = 'Processing...';
     this.render();
+
+    // Send stop message BEFORE closing WebSocket
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      console.log('📱 Frontend: Sending stop message immediately...');
+      this.ws.send(JSON.stringify({ type: 'stop' }));
+    }
 
     if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
       this.mediaRecorder.stop();
     }
 
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.close();
-    }
+    // Close WebSocket after a short delay to ensure stop message is sent
+    setTimeout(() => {
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        console.log('🔌 Frontend: Closing WebSocket connection...');
+        this.ws.close();
+      }
+    }, 500);
   }
 
   async playAudio(audioData) {
