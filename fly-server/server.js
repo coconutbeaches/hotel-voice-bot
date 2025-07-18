@@ -1,12 +1,14 @@
-import express from 'express';
-import { WebSocketServer } from 'ws';
+/* eslint-env node */
+import { writeFile, unlink } from 'fs/promises';
 import { createServer } from 'http';
-import cors from 'cors';
-import helmet from 'helmet';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { writeFile, unlink } from 'fs/promises';
+
+import cors from 'cors';
+import express from 'express';
+import helmet from 'helmet';
 import OpenAI from 'openai';
+import { WebSocketServer } from 'ws';
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -20,28 +22,32 @@ const audioBuffers = new Map();
 const app = express();
 
 // Security middleware
-app.use(helmet({
-  contentSecurityPolicy: false,
-  crossOriginEmbedderPolicy: false,
-}));
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+  })
+);
 
 // CORS middleware
-app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}));
+app.use(
+  cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  })
+);
 
 // Body parsing middleware
 app.use(express.json());
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'healthy', 
+  res.json({
+    status: 'healthy',
     service: 'coconut-voice-socket',
     timestamp: new Date().toISOString(),
-    env: process.env.NODE_ENV || 'development'
+    env: process.env.NODE_ENV || 'development',
   });
 });
 
@@ -52,8 +58,8 @@ app.get('/', (req, res) => {
     status: 'ready',
     endpoints: {
       health: '/health',
-      websocket: '/api/voice-socket'
-    }
+      websocket: '/voice',
+    },
   });
 });
 
@@ -61,50 +67,56 @@ app.get('/', (req, res) => {
 const server = createServer(app);
 
 // Create WebSocket server
-const wss = new WebSocketServer({ 
+const wss = new WebSocketServer({
   server,
-  path: '/api/voice-socket',
+  path: '/voice',
   perMessageDeflate: false,
 });
 
 console.log('🚀 Initializing WebSocket server for voice chat...');
 
 wss.on('connection', (ws, req) => {
+  console.log('🟢 New WebSocket connection on /voice');
   console.log('🎤 New voice chat connection established');
-  
+  console.log('📍 Client IP:', req.socket.remoteAddress);
+  console.log('🌐 User-Agent:', req.headers['user-agent'] || 'Unknown');
+
   // Initialize audio buffer for this connection
   const connectionId = Date.now() + Math.random();
   audioBuffers.set(connectionId, []);
 
   // Send connection confirmation
-  ws.send(JSON.stringify({
-    type: 'connected',
-    data: 'Voice chat ready! Start speaking...'
-  }));
+  ws.send(
+    JSON.stringify({
+      type: 'connected',
+      data: 'Voice chat ready! Start speaking...',
+    })
+  );
 
-  ws.on('message', async (data) => {
+  ws.on('message', async data => {
     try {
       // Handle different message types
       if (data instanceof Buffer) {
         // Audio data received
         console.log('📡 Received audio chunk:', data.length, 'bytes');
-        
+
         // Add to buffer
         const buffer = audioBuffers.get(connectionId) || [];
         buffer.push(data);
         audioBuffers.set(connectionId, buffer);
-        
+
         // Send acknowledgment
-        ws.send(JSON.stringify({
-          type: 'audio_received',
-          data: 'Audio chunk received'
-        }));
-        
+        ws.send(
+          JSON.stringify({
+            type: 'audio_received',
+            data: 'Audio chunk received',
+          })
+        );
       } else {
         // Text message (JSON)
         const message = JSON.parse(data.toString());
         console.log('📝 Received message:', message);
-        
+
         if (message.type === 'stop') {
           // Process accumulated audio
           await processAudioBuffer(ws, connectionId);
@@ -112,10 +124,12 @@ wss.on('connection', (ws, req) => {
       }
     } catch (error) {
       console.error('❌ Error processing message:', error);
-      ws.send(JSON.stringify({
-        type: 'error',
-        data: 'Error processing your message: ' + error.message
-      }));
+      ws.send(
+        JSON.stringify({
+          type: 'error',
+          data: 'Error processing your message: ' + error.message,
+        })
+      );
     }
   });
 
@@ -125,7 +139,7 @@ wss.on('connection', (ws, req) => {
     audioBuffers.delete(connectionId);
   });
 
-  ws.on('error', (error) => {
+  ws.on('error', error => {
     console.error('❌ WebSocket error:', error);
     audioBuffers.delete(connectionId);
   });
@@ -135,10 +149,12 @@ async function processAudioBuffer(ws, connectionId) {
   try {
     const buffer = audioBuffers.get(connectionId);
     if (!buffer || buffer.length === 0) {
-      ws.send(JSON.stringify({
-        type: 'error',
-        data: 'No audio data received'
-      }));
+      ws.send(
+        JSON.stringify({
+          type: 'error',
+          data: 'No audio data received',
+        })
+      );
       return;
     }
 
@@ -158,10 +174,12 @@ async function processAudioBuffer(ws, connectionId) {
     try {
       // Step 1: Transcribe audio using Whisper
       console.log('🎧 Transcribing audio...');
-      ws.send(JSON.stringify({
-        type: 'status',
-        data: 'Transcribing your message...'
-      }));
+      ws.send(
+        JSON.stringify({
+          type: 'status',
+          data: 'Transcribing your message...',
+        })
+      );
 
       const transcription = await openai.audio.transcriptions.create({
         file: combinedBuffer,
@@ -173,25 +191,31 @@ async function processAudioBuffer(ws, connectionId) {
       console.log('📝 Transcription:', userMessage);
 
       // Send transcription to client
-      ws.send(JSON.stringify({
-        type: 'transcript',
-        data: userMessage
-      }));
+      ws.send(
+        JSON.stringify({
+          type: 'transcript',
+          data: userMessage,
+        })
+      );
 
       if (!userMessage.trim()) {
-        ws.send(JSON.stringify({
-          type: 'error',
-          data: 'No speech detected. Please try again.'
-        }));
+        ws.send(
+          JSON.stringify({
+            type: 'error',
+            data: 'No speech detected. Please try again.',
+          })
+        );
         return;
       }
 
       // Step 2: Generate AI response using GPT-4o
       console.log('🤖 Generating AI response...');
-      ws.send(JSON.stringify({
-        type: 'status',
-        data: 'Generating response...'
-      }));
+      ws.send(
+        JSON.stringify({
+          type: 'status',
+          data: 'Generating response...',
+        })
+      );
 
       const completion = await openai.chat.completions.create({
         model: 'gpt-4o',
@@ -205,12 +229,12 @@ async function processAudioBuffer(ws, connectionId) {
             - Resort amenities and services
             - Check-in/check-out assistance
             
-            Keep responses conversational, warm, and helpful. Use a friendly, welcoming tone that matches the tropical resort atmosphere. If you don't know something specific about the resort, offer to connect them with the front desk.`
+            Keep responses conversational, warm, and helpful. Use a friendly, welcoming tone that matches the tropical resort atmosphere. If you don't know something specific about the resort, offer to connect them with the front desk.`,
           },
           {
             role: 'user',
-            content: userMessage
-          }
+            content: userMessage,
+          },
         ],
         max_tokens: 300,
         temperature: 0.7,
@@ -220,17 +244,21 @@ async function processAudioBuffer(ws, connectionId) {
       console.log('🤖 AI Response:', aiResponse);
 
       // Send AI response to client
-      ws.send(JSON.stringify({
-        type: 'ai_response',
-        data: aiResponse
-      }));
+      ws.send(
+        JSON.stringify({
+          type: 'ai_response',
+          data: aiResponse,
+        })
+      );
 
       // Step 3: Convert AI response to speech using TTS
       console.log('🔊 Converting to speech...');
-      ws.send(JSON.stringify({
-        type: 'status',
-        data: 'Converting to speech...'
-      }));
+      ws.send(
+        JSON.stringify({
+          type: 'status',
+          data: 'Converting to speech...',
+        })
+      );
 
       const speech = await openai.audio.speech.create({
         model: 'tts-1-hd',
@@ -246,19 +274,22 @@ async function processAudioBuffer(ws, connectionId) {
 
       // Send audio as base64 to client
       const audioBase64 = audioBuffer.toString('base64');
-      ws.send(JSON.stringify({
-        type: 'audio',
-        data: audioBase64
-      }));
+      ws.send(
+        JSON.stringify({
+          type: 'audio',
+          data: audioBase64,
+        })
+      );
 
       console.log('✅ Voice conversation completed successfully');
-
     } catch (error) {
       console.error('❌ Error in voice processing pipeline:', error);
-      ws.send(JSON.stringify({
-        type: 'error',
-        data: 'Sorry, I encountered an error processing your request. Please try again.'
-      }));
+      ws.send(
+        JSON.stringify({
+          type: 'error',
+          data: 'Sorry, I encountered an error processing your request. Please try again.',
+        })
+      );
     } finally {
       // Clean up temp file
       try {
@@ -267,13 +298,14 @@ async function processAudioBuffer(ws, connectionId) {
         console.error('⚠️ Error cleaning up temp file:', cleanupError);
       }
     }
-
   } catch (error) {
     console.error('❌ Error in processAudioBuffer:', error);
-    ws.send(JSON.stringify({
-      type: 'error',
-      data: 'Failed to process audio: ' + error.message
-    }));
+    ws.send(
+      JSON.stringify({
+        type: 'error',
+        data: 'Failed to process audio: ' + error.message,
+      })
+    );
   }
 }
 
@@ -281,7 +313,7 @@ async function processAudioBuffer(ws, connectionId) {
 const PORT = process.env.PORT || 8080;
 server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`🎤 WebSocket endpoint: wss://localhost:${PORT}/api/voice-socket`);
+  console.log(`🎤 WebSocket endpoint: wss://localhost:${PORT}/voice`);
   console.log(`🩺 Health check: http://localhost:${PORT}/health`);
   console.log(`🏠 Home: http://localhost:${PORT}/`);
 });
