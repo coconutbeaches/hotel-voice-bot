@@ -29,7 +29,7 @@
     "dotenv": "^16.4.5",
     "winston": "^3.13.1",
     "lru-cache": "^10.2.2",
-    "openai": "^4.55.7"
+    "openai": "4.104.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.12",
