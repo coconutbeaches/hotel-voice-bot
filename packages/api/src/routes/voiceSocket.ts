@@ -208,8 +208,34 @@ Keep responses concise for voice. User said: "${transcript}"`;
               mimeType: session.audioMimeType,
             });
 
+            // C1-DEBUG: Log chunk assembly details
+            console.log('[C1-DEBUG] Audio chunk assembly:', {
+              chunksReceived: session.audioChunks.length,
+              totalBufferSize: session.totalAudioSize,
+              mimeType: session.audioMimeType,
+              chunkSizes: session.audioChunks.map(chunk => chunk.length),
+            });
+
             // Combine all chunks into final buffer
             const finalBuffer = Buffer.concat(session.audioChunks);
+
+            // C1-DEBUG: Log final buffer details
+            console.log('[C1-DEBUG] Final buffer assembled:', {
+              finalBufferSize: finalBuffer.length,
+              expectedSize: session.totalAudioSize,
+              first16BytesHex: finalBuffer.slice(0, 16).toString('hex'),
+              detectedMimeType: session.audioMimeType,
+            });
+
+            // C1-DEBUG: Save assembled buffer to disk for validation
+            try {
+              const debugPath = join(tmpdir(), `output-${Date.now()}.webm`);
+              writeFileSync(debugPath, finalBuffer);
+              console.log('[C1-DEBUG] Assembled audio saved to:', debugPath);
+              console.log('[C1-DEBUG] Test playback with: ffplay', debugPath);
+            } catch (saveError) {
+              console.error('[C1-DEBUG] Failed to save debug file:', saveError);
+            }
 
             // Verify buffer integrity
             if (finalBuffer.length !== session.totalAudioSize) {
