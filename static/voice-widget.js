@@ -103,36 +103,51 @@ class VoiceWidget extends HTMLElement {
             fullMessage: msg,
           });
 
-          if (msg.type === 'transcription') {
-            console.log('📝 Setting transcription:', msg.text);
-            this.state.transcript = msg.text;
-            this.render();
-          } else if (msg.type === 'ai_response') {
-            console.log('🤖 Setting AI response:', msg.text);
-            this.state.aiResponse = msg.text;
-            this.render();
-          } else if (msg.type === 'tts_audio') {
-            console.log('🔊 Playing TTS audio response');
-            this.playAudio(msg.audio);
-          } else if (msg.type === 'audio') {
-            console.log('🔊 Playing audio response (legacy)');
-            this.playAudio(msg.data);
-          } else if (msg.type === 'debug') {
-            console.log('🔍 Debug message:', msg.step);
-          } else if (msg.type === 'error') {
-            console.log('❌ Setting error:', msg.data);
-            this.state.error = msg.data;
-            this.render();
-          } else if (msg.type === 'status') {
-            console.log('ℹ️ Status update:', msg.data);
-            this.state.status = msg.data;
-            this.render();
-          } else if (msg.type === 'connected') {
-            console.log('🔗 Connected:', msg.data);
-          } else if (msg.type === 'audio_received') {
-            console.log('🔈 Audio Received Acknowledgment:', msg.data);
-          } else {
-            console.log('🔍 Unknown message type:', msg.type, msg);
+          // Handle standardized WebSocket message types
+          switch (msg.type) {
+            case 'transcription':
+              // Show transcription in UI
+              this.updateTranscript(msg.text);
+              break;
+
+            case 'ai_response':
+              // Show AI reply in UI
+              this.updateAIResponse(msg.text);
+              break;
+
+            case 'tts_audio':
+              // Play audio from msg.audio (base64 or URL)
+              this.playTTS(msg.audio);
+              break;
+
+            case 'debug':
+              // Log debug info if needed
+              console.log('🔍 Debug message:', msg.step);
+              break;
+
+            case 'error':
+              console.log('❌ Setting error:', msg.error || msg.data);
+              this.state.error = msg.error || msg.data;
+              this.render();
+              break;
+
+            case 'status':
+              console.log('ℹ️ Status update:', msg.status || msg.data);
+              this.state.status = msg.status || msg.data;
+              this.render();
+              break;
+
+            case 'connected':
+              console.log('🔗 Connected:', msg.data);
+              break;
+
+            case 'audio_received':
+              console.log('🔈 Audio Received Acknowledgment:', msg.data);
+              break;
+
+            default:
+              console.warn('Unknown message type:', msg.type, msg);
+              break;
           }
         } catch (err) {
           console.error('Error parsing WebSocket message:', err);
@@ -238,6 +253,23 @@ class VoiceWidget extends HTMLElement {
         this.ws.close();
       }
     }, 30000); // 30 second timeout
+  }
+
+  updateTranscript(text) {
+    console.log('📝 Updating transcript:', text);
+    this.state.transcript = text;
+    this.render();
+  }
+
+  updateAIResponse(text) {
+    console.log('🤖 Updating AI response:', text);
+    this.state.aiResponse = text;
+    this.render();
+  }
+
+  playTTS(audioData) {
+    console.log('🔊 Playing TTS audio');
+    this.playAudio(audioData);
   }
 
   async playAudio(audioData) {
