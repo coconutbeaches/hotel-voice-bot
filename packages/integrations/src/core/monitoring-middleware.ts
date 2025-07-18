@@ -1,5 +1,6 @@
-import { integrationLogger, generateCorrelationId, LogContext } from './logger.js';
 import { CircuitBreakerState } from '@hotel-voice-bot/shared';
+
+import { integrationLogger, generateCorrelationId, LogContext } from './logger.js';
 
 export interface MonitoringConfig {
   enableMetrics: boolean;

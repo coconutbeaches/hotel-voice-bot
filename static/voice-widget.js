@@ -122,6 +122,10 @@ class VoiceWidget extends HTMLElement {
             console.log('ℹ️ Status update:', msg.data);
             this.state.status = msg.data;
             this.render();
+          } else if (msg.type === 'connected') {
+            console.log('🔗 Connected:', msg.data);
+          } else if (msg.type === 'audio_received') {
+            console.log('🔈 Audio Received Acknowledgment:', msg.data);
           } else {
             console.log('🔍 Unknown message type:', msg.type, msg);
           }
@@ -219,13 +223,14 @@ class VoiceWidget extends HTMLElement {
       this.mediaRecorder.stop();
     }
 
-    // Close WebSocket after a short delay to ensure stop message is sent
-    setTimeout(() => {
+    // Don't close WebSocket immediately - wait for processing to complete
+    // The connection will be closed when we receive the final response or error
+    this.connectionTimeout = setTimeout(() => {
       if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-        console.log('🔌 Frontend: Closing WebSocket connection...');
+        console.log('🔌 Frontend: Closing WebSocket connection after timeout...');
         this.ws.close();
       }
-    }, 500);
+    }, 30000); // 30 second timeout
   }
 
   async playAudio(audioData) {

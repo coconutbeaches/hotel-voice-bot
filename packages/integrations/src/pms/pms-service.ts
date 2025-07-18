@@ -1,4 +1,3 @@
-import axios, { AxiosInstance } from 'axios';
 import {
   PMSGuest,
   PMSReservation,
@@ -9,8 +8,10 @@ import {
   IntegrationError,
   CircuitBreakerConfig,
 } from '@hotel-voice-bot/shared';
-import { CircuitBreakerManager } from '../core/circuit-breaker.js';
+import axios, { AxiosInstance } from 'axios';
+
 import { CacheManager } from '../core/cache-manager.js';
+import { CircuitBreakerManager } from '../core/circuit-breaker.js';
 
 export interface PMSConfig {
   baseUrl: string;

@@ -1,5 +1,5 @@
-import LRU from 'lru-cache';
 import { CacheConfig, CacheEntry } from '@hotel-voice-bot/shared';
+import LRU from 'lru-cache';
 
 export class CacheManager {
   private cache: LRU<string, CacheEntry<any>>;

@@ -1,5 +1,6 @@
-import { CircuitBreakerState, CircuitBreakerConfig } from '@hotel-voice-bot/shared';
 import { EventEmitter } from 'events';
+
+import { CircuitBreakerState, CircuitBreakerConfig } from '@hotel-voice-bot/shared';
 export declare class CircuitBreaker extends EventEmitter {
     private state;
     private config;

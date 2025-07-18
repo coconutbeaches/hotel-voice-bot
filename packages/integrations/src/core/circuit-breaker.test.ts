@@ -1,5 +1,6 @@
-import { CircuitBreaker, CircuitBreakerManager } from './circuit-breaker.js';
 import { CircuitBreakerConfig } from '@hotel-voice-bot/shared';
+
+import { CircuitBreaker, CircuitBreakerManager } from './circuit-breaker.js';
 
 describe('CircuitBreaker', () => {
   let circuitBreaker: CircuitBreaker;

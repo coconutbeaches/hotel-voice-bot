@@ -1,11 +1,13 @@
 /* eslint-env node */
 import { writeFile, unlink } from 'fs/promises';
+import { createReadStream } from 'fs';
 import { createServer } from 'http';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
 import cors from 'cors';
 import express from 'express';
+import FormData from 'form-data';
 import helmet from 'helmet';
 import OpenAI from 'openai';
 import { WebSocketServer } from 'ws';
@@ -217,11 +219,51 @@ async function processAudioBuffer(ws, connectionId) {
       let userMessage = '';
 
       try {
-        const transcription = await openai.audio.transcriptions.create({
-          file: combinedBuffer,
-          model: 'whisper-1',
-          response_format: 'json',
+        // Create multipart/form-data for the OpenAI API
+        const form = new FormData();
+        
+        // Required fields
+        form.append('file', combinedBuffer, { 
+          filename: 'audio.webm', 
+          contentType: 'audio/webm' 
         });
+        form.append('model', process.env.WHISPER_MODEL || 'whisper-1');
+        form.append('response_format', process.env.WHISPER_RESPONSE_FORMAT || 'json');
+        
+        // Optional parameters (add if specified in environment)
+        if (process.env.WHISPER_TEMPERATURE) {
+          form.append('temperature', process.env.WHISPER_TEMPERATURE);
+        }
+        if (process.env.WHISPER_LANGUAGE) {
+          form.append('language', process.env.WHISPER_LANGUAGE);
+        }
+        if (process.env.WHISPER_PROMPT) {
+          form.append('prompt', process.env.WHISPER_PROMPT);
+        }
+
+        const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+          method: 'POST',
+          headers: {
+            ...form.getHeaders(),
+            Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
+          },
+          body: form
+        });
+
+        if (!response.ok) {
+          // Log detailed response info for non-2xx responses
+          const errorText = await response.text();
+          console.error('❌ OpenAI API Error:', {
+            status: response.status,
+            statusText: response.statusText,
+            responseBody: errorText,
+            url: response.url,
+            headers: Object.fromEntries(response.headers.entries())
+          });
+          throw new Error(`HTTP error! status: ${response.status}, response: ${errorText}`);
+        }
+
+        const transcription = await response.json();
 
         userMessage = transcription.text;
         console.log('📝 Backend: Transcription successful:', userMessage);

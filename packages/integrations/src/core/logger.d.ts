@@ -1,5 +1,5 @@
-import winston from 'winston';
 import { CircuitBreakerState, IntegrationError } from '@hotel-voice-bot/shared';
+import winston from 'winston';
 export interface LogContext {
     service: string;
     operation: string;
