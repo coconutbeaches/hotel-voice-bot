@@ -69,7 +69,12 @@ wss.on('connection', (ws, req) => {
       // Handle different message types
       if (data instanceof Buffer) {
         // Audio data received
-        console.log('📡 Received audio chunk:', data.length, 'bytes');
+        console.log('🎤 [CANARY] Audio chunk received:', {
+          connectionId,
+          chunkSize: data.length,
+          timestamp: new Date().toISOString(),
+          totalChunks: (audioBuffers.get(connectionId) || []).length + 1
+        });
         
         // Add to buffer
         const buffer = audioBuffers.get(connectionId) || [];
@@ -88,6 +93,11 @@ wss.on('connection', (ws, req) => {
         console.log('📝 Received message:', message);
         
         if (message.type === 'stop') {
+          console.log('🛑 [CANARY] Stop message received:', {
+            connectionId,
+            timestamp: new Date().toISOString(),
+            message
+          });
           // Process accumulated audio
           await processAudioBuffer(ws, connectionId);
         }
@@ -125,22 +135,43 @@ async function processAudioBuffer(ws, connectionId) {
       return;
     }
 
-    console.log('🎵 Processing audio buffer with', buffer.length, 'chunks');
+    console.log('🎵 [CANARY] Processing audio buffer:', {
+      connectionId,
+      chunkCount: buffer.length,
+      timestamp: new Date().toISOString()
+    });
 
     // Combine all audio chunks
     const combinedBuffer = Buffer.concat(buffer);
-    console.log('📦 Combined audio size:', combinedBuffer.length, 'bytes');
+    console.log('📦 [CANARY] Combined audio buffer:', {
+      connectionId,
+      totalSize: combinedBuffer.length,
+      timestamp: new Date().toISOString()
+    });
 
     // Clear the buffer
     audioBuffers.set(connectionId, []);
 
     // Save to temporary file
     const tempFile = join(tmpdir(), `voice-${connectionId}-${Date.now()}.webm`);
+    console.log('💾 [CANARY] Writing temp file:', {
+      connectionId,
+      tempFile,
+      bufferSize: combinedBuffer.length,
+      timestamp: new Date().toISOString()
+    });
     await writeFile(tempFile, combinedBuffer);
+    console.log('✅ [CANARY] Temp file written successfully:', tempFile);
 
     try {
       // Step 1: Transcribe audio using Whisper
-      console.log('🎧 Transcribing audio...');
+      console.log('🎧 [CANARY] Starting Whisper transcription:', {
+        connectionId,
+        tempFile,
+        bufferSize: combinedBuffer.length,
+        model: 'whisper-1',
+        timestamp: new Date().toISOString()
+      });
       ws.send(JSON.stringify({
         type: 'status',
         data: 'Transcribing your message...'
@@ -151,15 +182,32 @@ async function processAudioBuffer(ws, connectionId) {
         model: 'whisper-1',
         response_format: 'json',
       });
+      
+      console.log('📝 [CANARY] Whisper API response:', {
+        connectionId,
+        transcription: transcription,
+        timestamp: new Date().toISOString()
+      });
 
       const userMessage = transcription.text;
-      console.log('📝 Transcription:', userMessage);
+      console.log('📝 [CANARY] Transcription extracted:', {
+        connectionId,
+        userMessage,
+        messageLength: userMessage?.length || 0,
+        timestamp: new Date().toISOString()
+      });
 
       // Send transcription to client
-      ws.send(JSON.stringify({
+      const transcriptMessage = {
         type: 'transcript',
         data: userMessage
-      }));
+      };
+      console.log('📤 [CANARY] Sending transcript to client:', {
+        connectionId,
+        message: transcriptMessage,
+        timestamp: new Date().toISOString()
+      });
+      ws.send(JSON.stringify(transcriptMessage));
 
       if (!userMessage.trim()) {
         ws.send(JSON.stringify({
@@ -237,12 +285,27 @@ async function processAudioBuffer(ws, connectionId) {
       console.log('✅ Voice conversation completed successfully');
 
     } catch (error) {
-      console.error('❌ Error in voice processing pipeline with full details:', error);
-      ws.send(JSON.stringify({
+      console.error('❌ [CANARY] Error in voice processing pipeline:', {
+        connectionId,
+        error: {
+          message: error.message,
+          stack: error.stack,
+          response: error.response?.data,
+          status: error.response?.status
+        },
+        timestamp: new Date().toISOString()
+      });
+      const errorMessage = {
         type: 'error',
         data: 'Sorry, I encountered an error processing your request. Please try again.',
         stack: error.stack
-      }));
+      };
+      console.log('📤 [CANARY] Sending error to client:', {
+        connectionId,
+        message: errorMessage,
+        timestamp: new Date().toISOString()
+      });
+      ws.send(JSON.stringify(errorMessage));
     } finally {
       // Clean up temp file
       try {

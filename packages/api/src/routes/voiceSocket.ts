@@ -93,9 +93,12 @@ export function setupVoiceSocket(server: HTTPServer) {
           const audioBuffer = Buffer.from(data.audio, 'base64');
 
           // Transcribe audio
-          const transcript = await openaiClient.transcribeAudio(audioBuffer);
-          if (!transcript) {
-            throw new Error('Failed to transcribe audio');
+          let transcript;
+          try {
+            transcript = await openaiClient.transcribeAudio(audioBuffer);
+            if (!transcript) {
+              throw new Error('Failed to transcribe audio');
+            }
           } catch (error) {
             logger.error('Error transcribing audio:', error);
             socket.emit('error', { message: 'Failed to transcribe audio', details: error.message });
