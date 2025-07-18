@@ -5,7 +5,10 @@ import path from 'path';
 
 import fetch from 'node-fetch';
 
-const TRANSCRIBE_URL = 'https://hotel-voice-bot.vercel.app/api/transcribe';
+// Use environment variable or default to localhost for development
+// For production, set TRANSCRIBE_URL environment variable
+const TRANSCRIBE_URL =
+  process.env.TRANSCRIBE_URL || 'http://localhost:3000/api/transcribe';
 
 async function testTranscribe(audioFilePath) {
   try {
@@ -79,6 +82,10 @@ Examples:
   node test-transcribe.js sample.webm
   node test-transcribe.js test.wav
   node test-transcribe.js recording.mp3
+
+Environment Variables:
+  TRANSCRIBE_URL - Override the transcription endpoint URL
+  Example: TRANSCRIBE_URL=http://localhost:3000/api/transcribe node test-transcribe.js audio.webm
 
 Supported formats: .webm, .wav, .mp3, .ogg, .m4a
 `);
