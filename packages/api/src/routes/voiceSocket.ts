@@ -112,16 +112,48 @@ Keep responses concise for voice. User said: "${transcript}"`;
     socket.on(
       'audio-chunk',
       async (data: {
-        chunk: ArrayBuffer;
+        chunk?: ArrayBuffer;
+        audio?: ArrayBuffer | string;
         mimeType?: string;
         isLast?: boolean;
       }) => {
         try {
+          // C1 Robust chunk handler validation
+          if (!data || (!data.audio && !data.chunk)) {
+            console.warn(
+              '[C1-DEBUG] Skipping invalid chunk (missing audio):',
+              data
+            );
+            return;
+          }
+
+          let audioBuffer: Buffer;
+          try {
+            // Handle both data.audio and data.chunk patterns
+            const audioData = data.audio || data.chunk;
+            if (typeof audioData === 'string') {
+              // Handle base64 string
+              audioBuffer = Buffer.from(audioData, 'base64');
+            } else if (audioData instanceof ArrayBuffer) {
+              // Handle ArrayBuffer
+              audioBuffer = Buffer.from(audioData);
+            } else {
+              throw new Error('Invalid audio data type');
+            }
+          } catch (err) {
+            console.error('[C1-DEBUG] Failed to convert chunk to Buffer:', err);
+            return;
+          }
+
+          // Optional: Log chunk info
+          console.log(
+            `[C1-DEBUG] Received audio chunk (${audioBuffer.length} bytes)`
+          );
+
           session.lastActivity = Date.now();
 
-          const chunkBuffer = Buffer.from(data.chunk);
-          session.audioChunks.push(chunkBuffer);
-          session.totalAudioSize += chunkBuffer.length;
+          session.audioChunks.push(audioBuffer);
+          session.totalAudioSize += audioBuffer.length;
 
           // Update MIME type if provided
           if (data.mimeType) {
@@ -130,7 +162,7 @@ Keep responses concise for voice. User said: "${transcript}"`;
 
           logger.info('[audio-chunk] Received chunk', {
             sessionId: socket.id,
-            chunkSize: chunkBuffer.length,
+            chunkSize: audioBuffer.length,
             totalChunks: session.audioChunks.length,
             totalSize: session.totalAudioSize,
             mimeType: session.audioMimeType,
@@ -216,10 +248,33 @@ Keep responses concise for voice. User said: "${transcript}"`;
       'process-audio',
       async (data: { audio: string; sessionId: string; language: string }) => {
         try {
+          // C1 Robust validation for process-audio
+          if (!data || !data.audio) {
+            console.warn(
+              '[C1-DEBUG] Skipping invalid process-audio (missing audio):',
+              data
+            );
+            return;
+          }
+
           session.lastActivity = Date.now();
 
-          // Convert base64 to buffer
-          const audioBuffer = Buffer.from(data.audio, 'base64');
+          let audioBuffer: Buffer;
+          try {
+            // Convert base64 to buffer
+            audioBuffer = Buffer.from(data.audio, 'base64');
+          } catch (err) {
+            console.error(
+              '[C1-DEBUG] Failed to convert process-audio to Buffer:',
+              err
+            );
+            return;
+          }
+
+          // Optional: Log audio info
+          console.log(
+            `[C1-DEBUG] Processing audio (${audioBuffer.length} bytes)`
+          );
 
           logger.info('[process-audio] Processing base64 audio', {
             sessionId: data.sessionId,
