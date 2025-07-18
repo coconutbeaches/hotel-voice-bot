@@ -1,3 +1,4 @@
+import { createReadStream } from 'fs';
 import { Readable } from 'stream';
 
 import OpenAI from 'openai';
@@ -99,3 +100,22 @@ export const openaiClient = {
     }
   },
 };
+
+// Export for file-based transcription (used by Vercel Functions)
+export async function transcribeAudio(filePath: string): Promise<string> {
+  try {
+    const fileStream = createReadStream(filePath);
+
+    const transcription = await openai.audio.transcriptions.create({
+      file: fileStream as any,
+      model: 'whisper-1',
+    });
+
+    logger.info('Transcription result:', transcription.text);
+
+    return transcription.text;
+  } catch (error) {
+    logger.error('Error transcribing audio from file:', error);
+    throw error;
+  }
+}
