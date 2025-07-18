@@ -132,12 +132,29 @@ class VoiceWidget extends HTMLElement {
 
       // Setup audio streaming
       this.mediaRecorder.ondataavailable = e => {
+        console.log('🎤 Frontend: Audio data available:', {
+          type: e.data.type,
+          size: e.data.size,
+          timestamp: new Date().toISOString(),
+        });
+
         if (
           e.data.size > 0 &&
           this.ws &&
           this.ws.readyState === WebSocket.OPEN
         ) {
+          console.log('📤 Frontend: Sending audio chunk via WebSocket:', {
+            chunkSize: e.data.size,
+            mimeType: e.data.type,
+            wsState: this.ws.readyState,
+          });
           this.ws.send(e.data);
+        } else {
+          console.warn('⚠️ Frontend: Not sending audio chunk:', {
+            dataSize: e.data.size,
+            wsExists: !!this.ws,
+            wsState: this.ws ? this.ws.readyState : 'N/A',
+          });
         }
       };
 

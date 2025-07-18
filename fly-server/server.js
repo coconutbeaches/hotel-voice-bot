@@ -98,7 +98,8 @@ wss.on('connection', (ws, req) => {
       // Handle different message types
       if (data instanceof Buffer) {
         // Audio data received
-        console.log('📡 Received audio chunk:', data.length, 'bytes');
+        console.log('📡 Backend: Received audio chunk:', data.length, 'bytes');
+        console.log('🔍 Backend: First few bytes:', data.slice(0, 5));
 
         // Add to buffer
         const buffer = audioBuffers.get(connectionId) || [];
@@ -174,6 +175,13 @@ async function processAudioBuffer(ws, connectionId) {
     try {
       // Step 1: Transcribe audio using Whisper
       console.log('🎧 Transcribing audio...');
+      console.log('🔍 Backend: Audio file details:', {
+        path: tempFile,
+        size: combinedBuffer.length,
+        firstBytes: combinedBuffer.slice(0, 10),
+        mimeType: 'audio/webm', // We know it's webm from frontend
+      });
+
       ws.send(
         JSON.stringify({
           type: 'status',
@@ -181,14 +189,38 @@ async function processAudioBuffer(ws, connectionId) {
         })
       );
 
-      const transcription = await openai.audio.transcriptions.create({
-        file: combinedBuffer,
-        model: 'whisper-1',
-        response_format: 'json',
-      });
+      let userMessage = '';
 
-      const userMessage = transcription.text;
-      console.log('📝 Transcription:', userMessage);
+      try {
+        const transcription = await openai.audio.transcriptions.create({
+          file: combinedBuffer,
+          model: 'whisper-1',
+          response_format: 'json',
+        });
+
+        userMessage = transcription.text;
+        console.log('📝 Backend: Transcription successful:', userMessage);
+
+        if (!userMessage || userMessage.trim() === '') {
+          console.warn('⚠️ Backend: Empty transcription result');
+        }
+      } catch (transcriptionError) {
+        console.error('❌ Backend: Transcription API error:', {
+          message: transcriptionError.message,
+          code: transcriptionError.code,
+          type: transcriptionError.type,
+          stack: transcriptionError.stack,
+        });
+
+        // Try to provide more specific error info
+        if (transcriptionError.message.includes('format')) {
+          console.error(
+            '🚨 Backend: Audio format issue detected. WebM may not be supported.'
+          );
+        }
+
+        throw transcriptionError;
+      }
 
       // Send transcription to client
       ws.send(
