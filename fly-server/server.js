@@ -1,6 +1,6 @@
 /* eslint-env node */
-import { writeFile, unlink } from 'fs/promises';
 import { createReadStream } from 'fs';
+import { writeFile, unlink } from 'fs/promises';
 import { createServer } from 'http';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -9,6 +9,7 @@ import cors from 'cors';
 import express from 'express';
 import FormData from 'form-data';
 import helmet from 'helmet';
+import fetch from 'node-fetch';
 import OpenAI from 'openai';
 import { WebSocketServer } from 'ws';
 
@@ -109,8 +110,13 @@ wss.on('connection', (ws, req) => {
 
           if (message.type === 'stop') {
             // Process accumulated audio
-            console.log(
-              '🛑 Processing stop message, triggering audio processing...'
+            console.log('🛑 Stop message received');
+            // Send debug message to frontend
+            ws.send(
+              JSON.stringify({
+                type: 'debug',
+                step: 'Stop message received, starting audio processing...',
+              })
             );
             await processAudioBuffer(ws, connectionId);
           }
@@ -144,8 +150,13 @@ wss.on('connection', (ws, req) => {
 
         if (message.type === 'stop') {
           // Process accumulated audio
-          console.log(
-            '🛑 Processing stop message, triggering audio processing...'
+          console.log('🛑 Stop message received');
+          // Send debug message to frontend
+          ws.send(
+            JSON.stringify({
+              type: 'debug',
+              step: 'Stop message received, starting audio processing...',
+            })
           );
           await processAudioBuffer(ws, connectionId);
         }
@@ -190,10 +201,19 @@ async function processAudioBuffer(ws, connectionId) {
 
     // Combine all audio chunks
     const combinedBuffer = Buffer.concat(buffer);
+    console.log('🟢 Audio buffer assembled');
     console.log('📦 Combined audio size:', combinedBuffer.length, 'bytes');
 
     // Clear the buffer
     audioBuffers.set(connectionId, []);
+
+    // Send debug message to frontend
+    ws.send(
+      JSON.stringify({
+        type: 'debug',
+        step: 'Audio buffer assembled, starting transcription...',
+      })
+    );
 
     // Save to temporary file
     const tempFile = join(tmpdir(), `voice-${connectionId}-${Date.now()}.webm`);
@@ -221,15 +241,18 @@ async function processAudioBuffer(ws, connectionId) {
       try {
         // Create multipart/form-data for the OpenAI API
         const form = new FormData();
-        
+
         // Required fields
-        form.append('file', combinedBuffer, { 
-          filename: 'audio.webm', 
-          contentType: 'audio/webm' 
+        form.append('file', combinedBuffer, {
+          filename: 'audio.webm',
+          contentType: 'audio/webm',
         });
         form.append('model', process.env.WHISPER_MODEL || 'whisper-1');
-        form.append('response_format', process.env.WHISPER_RESPONSE_FORMAT || 'json');
-        
+        form.append(
+          'response_format',
+          process.env.WHISPER_RESPONSE_FORMAT || 'json'
+        );
+
         // Optional parameters (add if specified in environment)
         if (process.env.WHISPER_TEMPERATURE) {
           form.append('temperature', process.env.WHISPER_TEMPERATURE);
@@ -241,14 +264,17 @@ async function processAudioBuffer(ws, connectionId) {
           form.append('prompt', process.env.WHISPER_PROMPT);
         }
 
-        const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-          method: 'POST',
-          headers: {
-            ...form.getHeaders(),
-            Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
-          },
-          body: form
-        });
+        const response = await fetch(
+          'https://api.openai.com/v1/audio/transcriptions',
+          {
+            method: 'POST',
+            headers: {
+              ...form.getHeaders(),
+              Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+            },
+            body: form,
+          }
+        );
 
         if (!response.ok) {
           // Log detailed response info for non-2xx responses
@@ -258,15 +284,17 @@ async function processAudioBuffer(ws, connectionId) {
             statusText: response.statusText,
             responseBody: errorText,
             url: response.url,
-            headers: Object.fromEntries(response.headers.entries())
+            headers: Object.fromEntries(response.headers.entries()),
           });
-          throw new Error(`HTTP error! status: ${response.status}, response: ${errorText}`);
+          throw new Error(
+            `HTTP error! status: ${response.status}, response: ${errorText}`
+          );
         }
 
         const transcription = await response.json();
 
         userMessage = transcription.text;
-        console.log('📝 Backend: Transcription successful:', userMessage);
+        console.log('📝 Whisper transcription done:', userMessage);
 
         if (!userMessage || userMessage.trim() === '') {
           console.warn('⚠️ Backend: Empty transcription result');
@@ -290,10 +318,22 @@ async function processAudioBuffer(ws, connectionId) {
       }
 
       // Send transcription to client
+      console.log(
+        '📤 Backend: Sending transcription to frontend:',
+        userMessage
+      );
       ws.send(
         JSON.stringify({
-          type: 'transcript',
-          data: userMessage,
+          type: 'transcription',
+          text: userMessage,
+        })
+      );
+
+      // Send debug message
+      ws.send(
+        JSON.stringify({
+          type: 'debug',
+          step: 'Transcription completed and sent',
         })
       );
 
@@ -340,13 +380,22 @@ async function processAudioBuffer(ws, connectionId) {
       });
 
       const aiResponse = completion.choices[0].message.content;
-      console.log('🤖 AI Response:', aiResponse);
+      console.log('🤖 GPT-4o reply:', aiResponse);
 
       // Send AI response to client
+      console.log('📤 Backend: Sending AI response to frontend:', aiResponse);
       ws.send(
         JSON.stringify({
           type: 'ai_response',
-          data: aiResponse,
+          text: aiResponse,
+        })
+      );
+
+      // Send debug message
+      ws.send(
+        JSON.stringify({
+          type: 'debug',
+          step: 'AI response completed and sent',
         })
       );
 
@@ -369,14 +418,28 @@ async function processAudioBuffer(ws, connectionId) {
 
       // Convert response to buffer
       const audioBuffer = Buffer.from(await speech.arrayBuffer());
+      console.log('🔊 TTS synthesis complete');
       console.log('🎵 Generated audio size:', audioBuffer.length, 'bytes');
 
       // Send audio as base64 to client
       const audioBase64 = audioBuffer.toString('base64');
+      console.log(
+        '📤 Backend: Sending TTS audio to frontend, size:',
+        audioBase64.length,
+        'chars'
+      );
       ws.send(
         JSON.stringify({
-          type: 'audio',
-          data: audioBase64,
+          type: 'tts_audio',
+          audio: audioBase64,
+        })
+      );
+
+      // Send debug message
+      ws.send(
+        JSON.stringify({
+          type: 'debug',
+          step: 'TTS audio completed and sent',
         })
       );
 
