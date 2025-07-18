@@ -1,4 +1,4 @@
-import { createReadStream } from 'fs';
+import { createReadStream, statSync } from 'fs';
 import { Readable } from 'stream';
 
 import OpenAI from 'openai';
@@ -103,6 +103,13 @@ export const openaiClient = {
 
 export async function transcribeAudio(filePath: string) {
   try {
+    // Get file stats for logging
+    const stats = statSync(filePath);
+    console.log('🎧 Preparing file for transcription:', {
+      path: filePath,
+      size: stats.size,
+    });
+
     const transcription = await openai.audio.transcriptions.create({
       file: createReadStream(filePath),
       model: 'whisper-1',
@@ -111,11 +118,13 @@ export async function transcribeAudio(filePath: string) {
 
     console.log('✅ Transcription result:', transcription);
     return transcription;
-  } catch (error) {
-    console.error(
-      '❌ OpenAI error:',
-      error.response?.data || error.message || error
-    );
+  } catch (error: any) {
+    console.error('❌ OpenAI error:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      filePath,
+    });
     throw error;
   }
 }
