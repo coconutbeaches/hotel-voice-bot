@@ -1,12 +1,47 @@
+import { createReadStream, statSync } from 'fs';
 import fs from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import OpenAI from 'openai';
 
-import { transcribeAudio } from '../packages/api/src/services/openaiClient.js';
+if (!process.env.OPENAI_API_KEY) {
+  throw new Error('OPENAI_API_KEY is missing from environment variables');
+}
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+async function transcribeAudio(filePath: string) {
+  try {
+    // Get file stats for logging
+    const stats = statSync(filePath);
+    console.log('🎧 Preparing file for transcription:', {
+      path: filePath,
+      size: stats.size,
+    });
+
+    const transcription = await openai.audio.transcriptions.create({
+      file: createReadStream(filePath),
+      model: 'whisper-1',
+      response_format: 'json',
+    });
+
+    console.log('✅ Transcription result:', transcription);
+    return transcription;
+  } catch (error: any) {
+    console.error('❌ OpenAI error:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      filePath,
+    });
+    throw error;
+  }
+}
+
+export default async function handler(req: any, res: any) {
   // Enable CORS for voice widget
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -28,7 +63,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const chunks: Buffer[] = [];
 
     await new Promise<void>((resolve, reject) => {
-      req.on('data', chunk => chunks.push(chunk));
+      req.on('data', (chunk: Buffer) => chunks.push(chunk));
       req.on('end', () => resolve());
       req.on('error', reject);
     });
