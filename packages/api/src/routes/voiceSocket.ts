@@ -1,4 +1,7 @@
+import { writeFileSync, existsSync } from 'fs';
 import { Server as HTTPServer } from 'http';
+import { tmpdir } from 'os';
+import { join } from 'path';
 
 import { Server } from 'socket.io';
 
@@ -10,6 +13,9 @@ interface SessionData {
   language: string;
   context: string[];
   lastActivity: number;
+  audioChunks: Buffer[];
+  totalAudioSize: number;
+  audioMimeType: string;
 }
 
 const sessions = new Map<string, SessionData>();
@@ -47,42 +53,165 @@ export function setupVoiceSocket(server: HTTPServer) {
       language: 'en',
       context: [],
       lastActivity: Date.now(),
+      audioChunks: [],
+      totalAudioSize: 0,
+      audioMimeType: 'audio/mp4', // Default to MP4
     };
     sessions.set(socket.id, session);
 
-    // Handle audio chunks for streaming transcription
+    // Handle voice data (complete audio buffer)
+    socket.on('voice-data', async (audioData: ArrayBuffer) => {
+      try {
+        session.lastActivity = Date.now();
+
+        const audioBuffer = Buffer.from(audioData);
+        logger.info('[voice-data] Received complete audio buffer', {
+          sessionId: socket.id,
+          size: audioBuffer.length,
+          mimeType: session.audioMimeType,
+        });
+
+        // 🧪 Debug: Log first 100 bytes as base64
+        const debugBytes = audioBuffer.slice(0, 100).toString('base64');
+        logger.debug('[voice-data] First 100 bytes (base64):', debugBytes);
+
+        // 🛡️ Optional: Save debug copy to disk
+        if (process.env.NODE_ENV === 'development') {
+          const debugPath = join(tmpdir(), `speech-debug-${Date.now()}.mp4`);
+          writeFileSync(debugPath, audioBuffer);
+          logger.debug('[voice-data] Debug file saved:', debugPath);
+        }
+
+        // Process audio with Whisper
+        const transcript = await openaiClient.transcribeAudio(audioBuffer);
+        if (!transcript) {
+          throw new Error('Failed to transcribe audio');
+        }
+
+        // Emit transcription result
+        socket.emit('transcription', { text: transcript });
+
+        // Generate AI response
+        const prompt = `You are Coconut, a friendly AI assistant for Coconut Beach Hotel. 
+Keep responses concise for voice. User said: "${transcript}"`;
+
+        const responseText = await openaiClient.generateResponse(prompt);
+        if (responseText) {
+          socket.emit('voice-response', { text: responseText });
+        }
+      } catch (error) {
+        logger.error('[voice-data] Error processing audio:', error);
+        socket.emit('error', {
+          message: 'Failed to process audio',
+          details: (error as Error).message,
+        });
+      }
+    });
+
+    // Handle audio chunks for streaming assembly
     socket.on(
       'audio-chunk',
-      async (data: { audio: string; sessionId: string; language: string }) => {
+      async (data: {
+        chunk: ArrayBuffer;
+        mimeType?: string;
+        isLast?: boolean;
+      }) => {
         try {
           session.lastActivity = Date.now();
 
-          // Convert base64 to buffer
-          const audioBuffer = Buffer.from(data.audio, 'base64');
+          const chunkBuffer = Buffer.from(data.chunk);
+          session.audioChunks.push(chunkBuffer);
+          session.totalAudioSize += chunkBuffer.length;
 
-          // For real streaming, we'd accumulate chunks and process them
-          // For now, we'll process complete audio in 'process-audio' event
-          logger.debug('Received audio chunk', {
-            sessionId: data.sessionId,
-            size: audioBuffer.length,
+          // Update MIME type if provided
+          if (data.mimeType) {
+            session.audioMimeType = data.mimeType;
+          }
+
+          logger.info('[audio-chunk] Received chunk', {
+            sessionId: socket.id,
+            chunkSize: chunkBuffer.length,
+            totalChunks: session.audioChunks.length,
+            totalSize: session.totalAudioSize,
+            mimeType: session.audioMimeType,
+            isLast: data.isLast,
           });
 
-          // Monitor connection quality based on chunk delivery
-          const latency = Date.now() - session.lastActivity;
-          let quality: 'good' | 'poor' | 'bad' = 'good';
+          // 🧱 If this is the last chunk, assemble and process
+          if (data.isLast) {
+            logger.info('[audio-chunk] Assembling final audio buffer', {
+              totalChunks: session.audioChunks.length,
+              totalSize: session.totalAudioSize,
+              mimeType: session.audioMimeType,
+            });
 
-          if (latency > 2000) quality = 'bad';
-          else if (latency > 500) quality = 'poor';
+            // Combine all chunks into final buffer
+            const finalBuffer = Buffer.concat(session.audioChunks);
 
-          socket.emit('connection-quality', { level: quality });
+            // Verify buffer integrity
+            if (finalBuffer.length !== session.totalAudioSize) {
+              throw new Error(
+                `Buffer size mismatch: expected ${session.totalAudioSize}, got ${finalBuffer.length}`
+              );
+            }
+
+            // 🧪 Debug: Log assembly details
+            const debugBytes = finalBuffer.slice(0, 100).toString('base64');
+            logger.debug(
+              '[audio-chunk] Final buffer first 100 bytes (base64):',
+              debugBytes
+            );
+
+            // 🛡️ Optional: Save debug copy to disk
+            if (process.env.NODE_ENV === 'development') {
+              const debugPath = join(
+                tmpdir(),
+                `speech-assembled-${Date.now()}.mp4`
+              );
+              writeFileSync(debugPath, finalBuffer);
+              logger.debug(
+                '[audio-chunk] Debug assembled file saved:',
+                debugPath
+              );
+            }
+
+            // Process with Whisper
+            const transcript = await openaiClient.transcribeAudio(finalBuffer);
+            if (!transcript) {
+              throw new Error('Failed to transcribe assembled audio');
+            }
+
+            // Emit transcription result
+            socket.emit('transcription', { text: transcript });
+
+            // Generate AI response
+            const prompt = `You are Coconut, a friendly AI assistant for Coconut Beach Hotel. 
+Keep responses concise for voice. User said: "${transcript}"`;
+
+            const responseText = await openaiClient.generateResponse(prompt);
+            if (responseText) {
+              socket.emit('voice-response', { text: responseText });
+            }
+
+            // Clear chunks for next recording
+            session.audioChunks = [];
+            session.totalAudioSize = 0;
+          }
         } catch (error) {
-          logger.error('Error processing audio chunk', error);
-          socket.emit('error', { message: 'Failed to process audio chunk' });
+          logger.error('[audio-chunk] Error processing chunk:', error);
+          socket.emit('error', {
+            message: 'Failed to process audio chunk',
+            details: (error as Error).message,
+          });
+
+          // Reset chunks on error
+          session.audioChunks = [];
+          session.totalAudioSize = 0;
         }
       }
     );
 
-    // Process complete audio
+    // Handle legacy audio processing (for backward compatibility)
     socket.on(
       'process-audio',
       async (data: { audio: string; sessionId: string; language: string }) => {
@@ -92,77 +221,34 @@ export function setupVoiceSocket(server: HTTPServer) {
           // Convert base64 to buffer
           const audioBuffer = Buffer.from(data.audio, 'base64');
 
-          // Transcribe audio
-          let transcript;
-          try {
-            transcript = await openaiClient.transcribeAudio(audioBuffer);
-            if (!transcript) {
-              throw new Error('Failed to transcribe audio');
-            }
-          } catch (error) {
-            logger.error('Error transcribing audio:', error);
-            socket.emit('error', { message: 'Failed to transcribe audio', details: error.message });
-            return;
+          logger.info('[process-audio] Processing base64 audio', {
+            sessionId: data.sessionId,
+            size: audioBuffer.length,
+          });
+
+          // Process with updated transcription
+          const transcript = await openaiClient.transcribeAudio(audioBuffer);
+          if (!transcript) {
+            throw new Error('Failed to transcribe audio');
           }
 
-          // Emit final transcription
+          // Emit transcription
           socket.emit('transcription', { text: transcript, isFinal: true });
 
-          // Update session context
-          session.context.push(`User: ${transcript}`);
-          if (session.context.length > 10) {
-            session.context = session.context.slice(-10); // Keep last 10 messages
-          }
+          // Generate response
+          const prompt = `You are Coconut, a friendly AI assistant for Coconut Beach Hotel. 
+Keep responses concise for voice. User said: "${transcript}"`;
 
-          // Generate response with context
-          const prompt = `You are Coconut, a friendly and helpful AI assistant for Coconut Beach Hotel. 
-You help guests with questions about the hotel, amenities, bookings, and local information.
-Be conversational, warm, and natural in your responses. Keep responses concise for voice.
-
-Context:
-${session.context.join('\n')}
-
-Current user message: ${transcript}
-
-Provide a helpful response:`;
-
-          let responseText;
-          try {
-            responseText = await openaiClient.generateResponse(prompt);
-            if (!responseText) {
-              throw new Error('Failed to generate response');
-            }
-          } catch (error) {
-            logger.error('Error generating response:', error);
-            socket.emit('error', { message: 'Failed to generate response', details: error.message });
-            return;
-          }
-
-          // Update context with response
-          session.context.push(`Assistant: ${responseText}`);
-
-          // Generate audio response
-          const audioResponse = await openaiClient.textToSpeech(
-            responseText,
-            'nova'
-          ); // Using nova as close to "cove"
-
-          if (audioResponse) {
-            // Convert to base64 for transmission
-            const audioBase64 = audioResponse.toString('base64');
-            const audioUrl = `data:audio/mp3;base64,${audioBase64}`;
-
-            socket.emit('response', {
-              text: responseText,
-              audioUrl,
-            });
-          } else {
-            // Fallback to text only
+          const responseText = await openaiClient.generateResponse(prompt);
+          if (responseText) {
             socket.emit('response', { text: responseText });
           }
         } catch (error) {
-          logger.error('Error processing audio', error);
-          socket.emit('error', { message: 'Failed to process your request' });
+          logger.error('[process-audio] Error processing audio:', error);
+          socket.emit('error', {
+            message: 'Failed to process audio',
+            details: (error as Error).message,
+          });
         }
       }
     );

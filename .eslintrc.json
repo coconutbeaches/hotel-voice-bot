@@ -10,6 +10,15 @@
     "plugin:import/typescript",
     "prettier"
   ],
+  "env": {
+    "node": true,
+    "es2022": true
+  },
+  "globals": {
+    "FormData": "readonly",
+    "Blob": "readonly",
+    "fetch": "readonly"
+  },
   "parserOptions": {
     "ecmaVersion": 2022,
     "sourceType": "module"
