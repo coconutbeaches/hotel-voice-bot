@@ -22,6 +22,15 @@ async function transcribeAudio(filePath: string) {
       size: stats.size,
     });
 
+    // Log MIME type and encoding right before upload
+    const { fileTypeFromFile } = await import('file-type');
+    const fileType = await fileTypeFromFile(filePath);
+    console.log('📄 File details before upload:', {
+      detectedMimeType: fileType?.mime || 'unknown',
+      detectedExtension: fileType?.ext || 'unknown',
+      filePath,
+    });
+
     const transcription = await openai.audio.transcriptions.create({
       file: createReadStream(filePath),
       model: 'whisper-1',
@@ -30,14 +39,24 @@ async function transcribeAudio(filePath: string) {
 
     console.log('✅ Transcription result:', transcription);
     return transcription;
-  } catch (error: any) {
-    console.error('❌ OpenAI error:', {
-      message: error.message,
-      response: error.response?.data,
-      status: error.response?.status,
-      filePath,
-    });
-    throw error;
+  } catch (err: any) {
+    // Detailed error logging as requested
+    console.error('❌ [Whisper ERROR] message:', err.message);
+
+    if (err.response?.status) {
+      console.error('❌ [Whisper ERROR] status:', err.response.status);
+    }
+
+    if (err.response?.data) {
+      console.error('❌ [Whisper ERROR] data:', err.response.data);
+    }
+
+    console.error('❌ [Whisper ERROR] filePath:', filePath);
+
+    // Fallback comprehensive error log
+    console.error('[Whisper ERROR]', JSON.stringify(err, null, 2));
+
+    throw err;
   }
 }
 
