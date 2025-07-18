@@ -1,4 +1,4 @@
-import fs from 'fs';
+import { readFileSync } from 'fs';
 import path from 'path';
 import { Readable } from 'stream';
 
@@ -104,24 +104,38 @@ export const openaiClient = {
 };
 
 export async function transcribeAudio(filePath: string) {
-  const audioBuffer = fs.readFileSync(filePath);
+  const audioBuffer = readFileSync(filePath);
   const fileType = await fileTypeFromBuffer(audioBuffer);
-
-  if (!fileType || !fileType.mime.startsWith('audio/')) {
-    throw new Error(`Unsupported audio file type: ${fileType?.mime}`);
-  }
-
   const fileName = path.basename(filePath);
 
-  const response = await openai.audio.transcriptions.create({
-    file: {
-      value: audioBuffer,
-      name: fileName,
-      type: fileType.mime,
-    },
-    model: 'whisper-1',
-    response_format: 'json',
+  if (!fileType || !fileType.mime.startsWith('audio/')) {
+    throw new Error(`Unsupported file type: ${fileType?.mime}`);
+  }
+
+  console.log('🎧 Preparing file:', {
+    name: fileName,
+    type: fileType.mime,
+    size: audioBuffer.length,
   });
 
-  return response.text;
+  try {
+    const response = await openai.audio.transcriptions.create({
+      file: {
+        value: audioBuffer,
+        name: fileName,
+        type: fileType.mime,
+      },
+      model: 'whisper-1',
+      response_format: 'json',
+    });
+
+    console.log('✅ Transcription result:', response);
+    return response;
+  } catch (error) {
+    console.error(
+      '❌ OpenAI error:',
+      error.response?.data || error.message || error
+    );
+    throw error;
+  }
 }

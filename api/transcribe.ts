@@ -71,16 +71,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     // Transcribe the audio
-    const transcription = await transcribeAudio(tempFilePath);
+    const response = await transcribeAudio(tempFilePath);
 
-    console.log(`[transcribe] Transcription successful: "${transcription}"`);
+    console.log(`[transcribe] Transcription successful: "${response.text}"`);
 
     // Clean up temp file
     await fs.unlink(tempFilePath);
     tempFilePath = null;
 
     // Return transcription
-    return res.status(200).json({ transcription });
+    return res.status(200).json({ transcription: response.text });
   } catch (error) {
     console.error('[transcribe] Error:', error);
 
