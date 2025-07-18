@@ -22,40 +22,70 @@ export const openaiClient = {
         throw new Error('Empty or invalid audio buffer');
       }
 
+      logger.info(`[transcribeAudio] Processing ${audioBuffer.length} bytes of audio data`);
+      
+      // Write buffer to temporary file
       writeFileSync(tempFilePath, audioBuffer);
       const fileStats = statSync(tempFilePath);
-      logger.info(`Temporary file created: ${tempFilePath} (${fileStats.size} bytes)`);
+      logger.info(`[transcribeAudio] Created temporary file: ${tempFilePath} (${fileStats.size} bytes)`);
 
+      // Create FormData and let form-data handle headers automatically
       const form = new FormData();
-      form.append('file', createReadStream(tempFilePath), { filename: 'audio.webm', contentType: 'audio/webm' });
+      form.append('file', createReadStream(tempFilePath), {
+        filename: 'audio.webm',
+        contentType: 'audio/webm'
+      });
       form.append('model', 'whisper-1');
       form.append('response_format', 'json');
       form.append('language', 'en');
 
+      logger.info('[transcribeAudio] Sending request to OpenAI Whisper API...');
+
+      // Use form directly as body, let form-data set headers
       const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+          // Let form-data set the Content-Type header with boundary
           ...form.getHeaders()
         },
         body: form
       });
 
+      logger.info(`[transcribeAudio] Response status: ${response.status} ${response.statusText}`);
+
       if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.statusText}`);
+        // Get full response body for debugging
+        const errorBody = await response.text();
+        logger.error(`[transcribeAudio] OpenAI API error ${response.status}: ${errorBody}`);
+        throw new Error(`OpenAI API error ${response.status}: ${errorBody}`);
       }
 
+      // Parse JSON response
       const result = await response.json() as OpenAITranscriptionResult;
+      
+      if (!result.text) {
+        logger.error('[transcribeAudio] No text field in response:', result);
+        throw new Error('No transcription text returned from OpenAI');
+      }
+
+      logger.info(`[transcribeAudio] Transcription successful: "${result.text}"`);
       return result.text;
 
     } catch (error) {
-      logger.error('Transcription error:', (error as Error).message);
+      logger.error('[transcribeAudio] Error during processing:', (error as Error).message);
+      logger.error('[transcribeAudio] Stack trace:', (error as Error).stack);
       throw error;
 
     } finally {
+      // Clean up temporary file after response is processed
       if (existsSync(tempFilePath)) {
-        unlinkSync(tempFilePath);
-        logger.info(`Temporary file removed: ${tempFilePath}`);
+        try {
+          unlinkSync(tempFilePath);
+          logger.info(`[transcribeAudio] Cleaned up temporary file: ${tempFilePath}`);
+        } catch (cleanupError) {
+          logger.warn(`[transcribeAudio] Failed to cleanup temporary file: ${(cleanupError as Error).message}`);
+        }
       }
     }
   },
@@ -78,17 +108,16 @@ export const openaiClient = {
 
       if (!response.ok) {
         const errorText = await response.text();
-        logger.error(`textToSpeech: OpenAI API error ${response.status} ${response.statusText}`);
-        logger.error(`textToSpeech: Error details: ${errorText}`);
+        logger.error(`[textToSpeech] OpenAI API error ${response.status}: ${errorText}`);
         throw new Error(`Failed to generate speech: ${errorText}`);
       }
 
       const buffer = Buffer.from(await response.arrayBuffer());
-      logger.info(`textToSpeech: Generated ${buffer.length} bytes of audio data`);
+      logger.info(`[textToSpeech] Generated ${buffer.length} bytes of audio data`);
       return buffer;
     } catch (error) {
-      logger.error('textToSpeech: Error occurred during processing:', (error as Error).message);
-      logger.error('textToSpeech: Stack trace:', (error as Error).stack);
+      logger.error('[textToSpeech] Error occurred during processing:', (error as Error).message);
+      logger.error('[textToSpeech] Stack trace:', (error as Error).stack);
       return Buffer.from('');
     }
   },
@@ -119,18 +148,17 @@ export const openaiClient = {
 
       if (!completion.ok) {
         const errorText = await completion.text();
-        logger.error(`generateResponse: OpenAI API error ${completion.status} ${completion.statusText}`);
-        logger.error(`generateResponse: Error details: ${errorText}`);
+        logger.error(`[generateResponse] OpenAI API error ${completion.status}: ${errorText}`);
         throw new Error(`Failed to generate response: ${errorText}`);
       }
 
       const result = await completion.json() as any;
       const message = result.choices[0]?.message?.content?.trim() || "";
-      logger.info('generateResponse: Generated message:', message);
+      logger.info('[generateResponse] Generated message:', message);
       return message;
     } catch (error) {
-      logger.error('generateResponse: Error occurred during processing:', (error as Error).message);
-      logger.error('generateResponse: Stack trace:', (error as Error).stack);
+      logger.error('[generateResponse] Error occurred during processing:', (error as Error).message);
+      logger.error('[generateResponse] Stack trace:', (error as Error).stack);
       return "Sorry, I couldn't generate a response.";
     }
   }

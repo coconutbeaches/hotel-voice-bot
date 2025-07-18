@@ -37,40 +37,70 @@ export class OpenAIClient {
         throw new Error('Empty or invalid audio buffer');
       }
 
+      console.log(`[transcribeAudio] Processing ${audioBuffer.length} bytes of audio data`);
+      
+      // Write buffer to temporary file
       writeFileSync(tempFilePath, audioBuffer);
       const fileStats = statSync(tempFilePath);
-      console.log(`Temporary file created: ${tempFilePath} (${fileStats.size} bytes)`);
+      console.log(`[transcribeAudio] Created temporary file: ${tempFilePath} (${fileStats.size} bytes)`);
 
+      // Create FormData and let form-data handle headers automatically
       const form = new FormData();
-      form.append('file', createReadStream(tempFilePath), { filename: 'audio.webm', contentType: 'audio/webm' });
+      form.append('file', createReadStream(tempFilePath), {
+        filename: 'audio.webm',
+        contentType: 'audio/webm'
+      });
       form.append('model', 'whisper-1');
       form.append('response_format', 'json');
       form.append('language', 'en');
 
+      console.log('[transcribeAudio] Sending request to OpenAI Whisper API...');
+
+      // Use form directly as body, let form-data set headers
       const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+          // Let form-data set the Content-Type header with boundary
           ...form.getHeaders()
         },
         body: form
       });
 
+      console.log(`[transcribeAudio] Response status: ${response.status} ${response.statusText}`);
+
       if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.statusText}`);
+        // Get full response body for debugging
+        const errorBody = await response.text();
+        console.error(`[transcribeAudio] OpenAI API error ${response.status}: ${errorBody}`);
+        throw new Error(`OpenAI API error ${response.status}: ${errorBody}`);
       }
 
+      // Parse JSON response
       const result = await response.json() as { text: string };
+      
+      if (!result.text) {
+        console.error('[transcribeAudio] No text field in response:', result);
+        throw new Error('No transcription text returned from OpenAI');
+      }
+
+      console.log(`[transcribeAudio] Transcription successful: "${result.text}"`);
       return result.text;
 
     } catch (error) {
-      console.error('Transcription error:', (error as Error).message);
+      console.error('[transcribeAudio] Error during processing:', (error as Error).message);
+      console.error('[transcribeAudio] Stack trace:', (error as Error).stack);
       throw error;
 
     } finally {
+      // Clean up temporary file after response is processed
       if (existsSync(tempFilePath)) {
-        unlinkSync(tempFilePath);
-        console.log(`Temporary file removed: ${tempFilePath}`);
+        try {
+          unlinkSync(tempFilePath);
+          console.log(`[transcribeAudio] Cleaned up temporary file: ${tempFilePath}`);
+        } catch (cleanupError) {
+          console.warn(`[transcribeAudio] Failed to cleanup temporary file: ${(cleanupError as Error).message}`);
+        }
       }
     }
   }
