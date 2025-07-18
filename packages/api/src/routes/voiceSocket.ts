@@ -138,19 +138,19 @@ Keep responses concise for voice. User said: "${transcript}"`;
             return;
           }
 
-          let audioBuffer: Buffer;
+          let audioBuffer;
           try {
-            // Handle both data.audio and data.chunk patterns
-            const audioData = data.audio || data.chunk;
-            if (typeof audioData === 'string') {
-              // Handle base64 string
-              audioBuffer = Buffer.from(audioData, 'base64');
-            } else if (audioData instanceof ArrayBuffer) {
-              // Handle ArrayBuffer
-              audioBuffer = Buffer.from(audioData);
-            } else {
-              throw new Error('Invalid audio data type');
-            }
+            // Detect if base64
+            const isBase64 =
+              typeof data.audio === 'string' &&
+              /^[A-Za-z0-9+/=]+$/.test(data.audio.slice(0, 24));
+            audioBuffer = Buffer.from(
+              data.audio,
+              isBase64 ? 'base64' : undefined
+            );
+            console.log(
+              `[C1-DEBUG] Parsed audio buffer: ${audioBuffer.length} bytes`
+            );
           } catch (err) {
             console.error('[C1-DEBUG] Failed to convert chunk to Buffer:', err);
             return;
