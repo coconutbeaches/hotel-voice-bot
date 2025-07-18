@@ -9,6 +9,10 @@ docs/
 tests/
 scripts/
 deploy/
+fly-server/
+websocket-server/
+index.html*
+public*
 
 # Include only what we need
 !static/
