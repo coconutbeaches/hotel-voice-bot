@@ -1,13 +1,16 @@
+/* eslint-env browser */
+/* eslint-disable no-console */
+
 class VoiceWidget extends HTMLElement {
   constructor() {
     super();
-    this.attachShadow({mode: 'open'});
-    this.state = { 
-      recording: false, 
-      transcript: '', 
+    this.attachShadow({ mode: 'open' });
+    this.state = {
+      recording: false,
+      transcript: '',
       aiResponse: '',
-      error: '', 
-      status: 'Ready to chat' 
+      error: '',
+      status: 'Ready to chat',
     };
     this.mediaRecorder = null;
     this.ws = null;
@@ -25,13 +28,13 @@ class VoiceWidget extends HTMLElement {
     const modal = this.shadowRoot.querySelector('.modal');
     const closeBtn = this.shadowRoot.querySelector('.close-btn');
     const recordBtn = this.shadowRoot.querySelector('.record-btn');
-    
+
     button.addEventListener('click', () => this.toggleModal());
     closeBtn.addEventListener('click', () => this.closeModal());
     recordBtn.addEventListener('click', () => this.toggleRecording());
-    
+
     // Close modal when clicking outside
-    modal.addEventListener('click', (e) => {
+    modal.addEventListener('click', e => {
       if (e.target === modal) this.closeModal();
     });
   }
@@ -62,22 +65,29 @@ class VoiceWidget extends HTMLElement {
       this.render();
 
       // Get microphone access
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: { 
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
           sampleRate: 16000,
           channelCount: 1,
           echoCancellation: true,
-          noiseSuppression: true
-        } 
+          noiseSuppression: true,
+        },
       });
 
       // Setup MediaRecorder
-      this.mediaRecorder = new MediaRecorder(stream, { 
-        mimeType: 'audio/webm;codecs=opus' 
+      this.mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'audio/webm;codecs=opus',
       });
 
-      // Connect WebSocket
-      const wsUrl = `${location.origin.replace(/^http/, 'ws')}/api/voice-socket`;
+      // Connect WebSocket - Use Fly.io backend for real-time voice processing
+      // Production: wss://coconut-voice-socket.fly.dev/voice
+      // Development: fallback to local if available
+      const wsUrl =
+        location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+          ? `${location.origin.replace(/^http/, 'ws')}/api/voice-socket`
+          : 'wss://coconut-voice-socket.fly.dev/voice';
+
+      console.log('Connecting to WebSocket:', wsUrl);
       this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = () => {
@@ -85,11 +95,11 @@ class VoiceWidget extends HTMLElement {
         this.render();
       };
 
-      this.ws.onmessage = (e) => {
+      this.ws.onmessage = e => {
         try {
           const msg = JSON.parse(e.data);
           console.log('Received message:', msg);
-          
+
           if (msg.type === 'transcript') {
             this.state.transcript = msg.data;
             this.render();
@@ -109,7 +119,7 @@ class VoiceWidget extends HTMLElement {
         }
       };
 
-      this.ws.onerror = (err) => {
+      this.ws.onerror = err => {
         console.error('WebSocket error:', err);
         this.state.error = 'Connection error - please try again';
         this.render();
@@ -121,8 +131,12 @@ class VoiceWidget extends HTMLElement {
       };
 
       // Setup audio streaming
-      this.mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0 && this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.mediaRecorder.ondataavailable = e => {
+        if (
+          e.data.size > 0 &&
+          this.ws &&
+          this.ws.readyState === WebSocket.OPEN
+        ) {
           this.ws.send(e.data);
         }
       };
@@ -136,7 +150,6 @@ class VoiceWidget extends HTMLElement {
 
       // Start recording in chunks for streaming
       this.mediaRecorder.start(1000); // Send 1-second chunks
-      
     } catch (err) {
       console.error('Error starting recording:', err);
       this.state.error = 'Microphone access denied or not available';
@@ -176,14 +189,14 @@ class VoiceWidget extends HTMLElement {
 
       const audioUrl = URL.createObjectURL(audioBlob);
       const audio = new Audio(audioUrl);
-      
+
       audio.onended = () => {
         URL.revokeObjectURL(audioUrl);
         this.state.status = 'Ready to chat';
         this.render();
       };
 
-      audio.onerror = (err) => {
+      audio.onerror = err => {
         console.error('Audio playback error:', err);
         this.state.error = 'Audio playback failed';
         this.render();
@@ -390,7 +403,7 @@ class VoiceWidget extends HTMLElement {
         </div>
       </div>
     `;
-    
+
     // Re-setup event listeners after re-render
     if (this.shadowRoot) {
       this.setupEventListeners();
