@@ -3,6 +3,7 @@
   "outputDirectory": "static",
   "cleanUrls": true,
   "trailingSlash": false,
+  "framework": null,
   "functions": {
     "api/*.ts": {
       "maxDuration": 30
