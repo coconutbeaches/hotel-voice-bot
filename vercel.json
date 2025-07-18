@@ -6,9 +6,16 @@
   "functions": {
     "api/*.ts": {
       "maxDuration": 30
+    },
+    "api/*.js": {
+      "maxDuration": 60
     }
   },
   "rewrites": [
+    {
+      "source": "/static/(.*)",
+      "destination": "/static/$1"
+    },
     {
       "source": "/(.*)",
       "destination": "/index.html"
@@ -29,6 +36,19 @@
         {
           "key": "Access-Control-Allow-Headers",
           "value": "Content-Type"
+        }
+      ]
+    },
+    {
+      "source": "/static/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600"
         }
       ]
     }

@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Widget Demo - Coconut Beach Resort</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .container {
+            text-align: center;
+            padding: 40px;
+            max-width: 800px;
+        }
+
+        .header {
+            margin-bottom: 40px;
+        }
+
+        .logo {
+            font-size: 3rem;
+            margin-bottom: 20px;
+        }
+
+        .title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            margin-bottom: 30px;
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .feature {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+        }
+
+        .feature h3 {
+            font-size: 1.3rem;
+            margin-bottom: 10px;
+        }
+
+        .feature p {
+            opacity: 0.9;
+            line-height: 1.6;
+        }
+
+        .instructions {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 20px;
+            margin-bottom: 40px;
+            text-align: left;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .instructions h3 {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .step {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .step-number {
+            background: #29c6c2;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+
+        .step-text {
+            flex: 1;
+        }
+
+        .widget-note {
+            background: rgba(41, 198, 194, 0.2);
+            padding: 20px;
+            border-radius: 15px;
+            margin-top: 30px;
+            border: 1px solid rgba(41, 198, 194, 0.3);
+        }
+
+        .widget-note h4 {
+            margin-bottom: 10px;
+            color: #29c6c2;
+        }
+
+        .code-snippet {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            text-align: left;
+        }
+
+        @media (max-width: 768px) {
+            .title {
+                font-size: 2rem;
+            }
+            
+            .features {
+                grid-template-columns: 1fr;
+            }
+            
+            .container {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">🥥🏖️</div>
+            <h1 class="title">Coconut Beach Resort</h1>
+            <p class="subtitle">Experience our AI-powered voice assistant</p>
+        </div>
+
+        <div class="features">
+            <div class="feature">
+                <div class="feature-icon">🎤</div>
+                <h3>Voice Recognition</h3>
+                <p>Speak naturally and our AI will understand your requests using advanced speech recognition.</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🤖</div>
+                <h3>GPT-4o Intelligence</h3>
+                <p>Powered by OpenAI's most advanced language model for intelligent, context-aware responses.</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🔊</div>
+                <h3>Natural Speech</h3>
+                <p>Hear responses in a natural, friendly voice that matches our resort's warm atmosphere.</p>
+            </div>
+        </div>
+
+        <div class="instructions">
+            <h3>🎯 How to Use the Voice Widget</h3>
+            <div class="step">
+                <div class="step-number">1</div>
+                <div class="step-text">Click the "🎤 Talk to Coconut Beach" button in the bottom right corner</div>
+            </div>
+            <div class="step">
+                <div class="step-number">2</div>
+                <div class="step-text">Allow microphone access when prompted by your browser</div>
+            </div>
+            <div class="step">
+                <div class="step-number">3</div>
+                <div class="step-text">Click "Start Recording" and speak your question or request</div>
+            </div>
+            <div class="step">
+                <div class="step-number">4</div>
+                <div class="step-text">Click "Stop Recording" when finished speaking</div>
+            </div>
+            <div class="step">
+                <div class="step-number">5</div>
+                <div class="step-text">Watch as your speech is transcribed and the AI responds with voice</div>
+            </div>
+        </div>
+
+        <div class="widget-note">
+            <h4>🚀 Try asking about:</h4>
+            <ul style="text-align: left; padding-left: 20px;">
+                <li>Room service menu and ordering</li>
+                <li>Spa appointments and treatments</li>
+                <li>Local attractions and activities</li>
+                <li>Resort amenities and services</li>
+                <li>Check-in/check-out procedures</li>
+                <li>Beach activities and water sports</li>
+            </ul>
+            
+            <h4 style="margin-top: 20px;">💻 Embed on Your Site:</h4>
+            <div class="code-snippet">
+&lt;script src="/static/voice-widget.js"&gt;&lt;/script&gt;
+&lt;voice-widget&gt;&lt;/voice-widget&gt;
+            </div>
+        </div>
+    </div>
+
+    <!-- Voice Widget Integration -->
+    <script src="/static/voice-widget.js"></script>
+    <voice-widget></voice-widget>
+</body>
+</html>
