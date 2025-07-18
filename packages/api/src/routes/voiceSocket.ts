@@ -118,6 +118,18 @@ Keep responses concise for voice. User said: "${transcript}"`;
         isLast?: boolean;
       }) => {
         try {
+          // Temporary debug logs at the very start
+          console.log('[C1-DEBUG] Received audio-chunk');
+          console.log('[C1-DEBUG] Object.keys:', Object.keys(data));
+          console.log('[C1-DEBUG] typeof data.audio:', typeof data.audio);
+          console.log(
+            '[C1-DEBUG] audio (first 40):',
+            typeof data.audio === 'string'
+              ? data.audio.slice(0, 40)
+              : '[non-string]'
+          );
+          console.log('[C1-DEBUG] audio.length:', data.audio?.length);
+
           // C1 Log every incoming audio-chunk payload
           console.log('[C1-DEBUG] Raw incoming chunk:', {
             keys: Object.keys(data || {}),
@@ -140,6 +152,14 @@ Keep responses concise for voice. User said: "${transcript}"`;
 
           let audioBuffer;
           try {
+            // Test Buffer.from before actual use
+            try {
+              const buffer = Buffer.from(data.audio);
+              console.log('[C1-DEBUG] Buffer created:', buffer.length, 'bytes');
+            } catch (e) {
+              console.error('[C1-DEBUG] Buffer.from failed:', e.message);
+            }
+
             // Detect if base64
             const isBase64 =
               typeof data.audio === 'string' &&
