@@ -97,29 +97,54 @@ wss.on('connection', (ws, req) => {
     try {
       // Handle different message types
       if (data instanceof Buffer) {
-        // Audio data received
-        console.log('📡 Backend: Received audio chunk:', data.length, 'bytes');
-        console.log('🔍 Backend: First few bytes:', data.slice(0, 5));
+        // Check if this is actually JSON data disguised as a buffer
+        try {
+          const potentialJson = data.toString();
+          const message = JSON.parse(potentialJson);
 
-        // Add to buffer
-        const buffer = audioBuffers.get(connectionId) || [];
-        buffer.push(data);
-        audioBuffers.set(connectionId, buffer);
+          // If we successfully parsed JSON, treat it as a text message
+          console.log('📝 Received JSON message:', message);
 
-        // Send acknowledgment
-        ws.send(
-          JSON.stringify({
-            type: 'audio_received',
-            data: 'Audio chunk received',
-          })
-        );
+          if (message.type === 'stop') {
+            // Process accumulated audio
+            console.log(
+              '🛑 Processing stop message, triggering audio processing...'
+            );
+            await processAudioBuffer(ws, connectionId);
+          }
+          return;
+        } catch (jsonError) {
+          // Not JSON, treat as audio data
+          console.log(
+            '📡 Backend: Received audio chunk:',
+            data.length,
+            'bytes'
+          );
+          console.log('🔍 Backend: First few bytes:', data.slice(0, 5));
+
+          // Add to buffer
+          const buffer = audioBuffers.get(connectionId) || [];
+          buffer.push(data);
+          audioBuffers.set(connectionId, buffer);
+
+          // Send acknowledgment
+          ws.send(
+            JSON.stringify({
+              type: 'audio_received',
+              data: 'Audio chunk received',
+            })
+          );
+        }
       } else {
         // Text message (JSON)
         const message = JSON.parse(data.toString());
-        console.log('📝 Received message:', message);
+        console.log('📝 Received text message:', message);
 
         if (message.type === 'stop') {
           // Process accumulated audio
+          console.log(
+            '🛑 Processing stop message, triggering audio processing...'
+          );
           await processAudioBuffer(ws, connectionId);
         }
       }
