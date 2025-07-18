@@ -238,6 +238,31 @@ async function processAudioBuffer(ws, connectionId) {
         timestamp: new Date().toISOString(),
       });
 
+      // Enhanced debug logs as requested
+      console.log('🔍 [C1-DEBUG] Full filename + file size:', {
+        connectionId,
+        filename: filename,
+        fileSize: audioBlob.size,
+        timestamp: new Date().toISOString(),
+      });
+
+      console.log('🔍 [C1-DEBUG] Full Content-Type of FormData:', {
+        connectionId,
+        audioBlob_type: audioBlob.type,
+        detected_mimeType: mimeType,
+        timestamp: new Date().toISOString(),
+      });
+
+      console.log(
+        '🔍 [C1-DEBUG] First 12 bytes of assembled buffer (base64):',
+        {
+          connectionId,
+          first12Bytes: combinedBuffer.subarray(0, 12).toString('base64'),
+          bufferTotalSize: combinedBuffer.length,
+          timestamp: new Date().toISOString(),
+        }
+      );
+
       // Make direct fetch call to Whisper API with proper headers
       const response = await fetch(
         'https://api.openai.com/v1/audio/transcriptions',
@@ -267,6 +292,18 @@ async function processAudioBuffer(ws, connectionId) {
           errorBody,
           timestamp: new Date().toISOString(),
         });
+
+        // Enhanced error logging as requested
+        console.error(
+          '🔍 [C1-DEBUG] Full Whisper API response body (on error):',
+          {
+            connectionId,
+            fullErrorBody: errorBody,
+            responseHeaders: Object.fromEntries(response.headers.entries()),
+            timestamp: new Date().toISOString(),
+          }
+        );
+
         throw new Error(
           `Whisper API error: ${response.status} ${response.statusText} - ${errorBody}`
         );
