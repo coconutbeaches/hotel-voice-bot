@@ -29,7 +29,7 @@ declare global {
   let widgetRoot: any = null;
 
   const defaultConfig: CoconutVoiceConfig = {
-    apiUrl: 'https://hotel-voice-bot-staging.fly.dev',
+    apiUrl: 'wss://coconut-voice-socket.fly.dev/voice',
     wakeWord: 'Hey Coconut',
     defaultVoice: 'cove',
     enableWakeWord: false,

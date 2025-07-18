@@ -23,7 +23,7 @@ interface VoiceWidgetProps extends VoiceWidgetConfig {
 
 const VoiceWidget: React.FC<VoiceWidgetProps> = ({
   apiUrl = process.env.REACT_APP_API_URL ||
-    'https://hotel-voice-bot-staging.fly.dev',
+    'wss://coconut-voice-socket.fly.dev/voice',
   wakeWord = 'Hey Coconut',
   defaultVoice = 'cove',
   enableWakeWord = true,
