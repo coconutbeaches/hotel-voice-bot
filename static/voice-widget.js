@@ -103,17 +103,22 @@ class VoiceWidget extends HTMLElement {
             fullMessage: msg,
           });
 
-          if (msg.type === 'transcript') {
-            console.log('📝 Setting transcript:', msg.data);
-            this.state.transcript = msg.data;
+          if (msg.type === 'transcription') {
+            console.log('📝 Setting transcription:', msg.text);
+            this.state.transcript = msg.text;
             this.render();
           } else if (msg.type === 'ai_response') {
-            console.log('🤖 Setting AI response:', msg.data);
-            this.state.aiResponse = msg.data;
+            console.log('🤖 Setting AI response:', msg.text);
+            this.state.aiResponse = msg.text;
             this.render();
+          } else if (msg.type === 'tts_audio') {
+            console.log('🔊 Playing TTS audio response');
+            this.playAudio(msg.audio);
           } else if (msg.type === 'audio') {
-            console.log('🔊 Playing audio response');
+            console.log('🔊 Playing audio response (legacy)');
             this.playAudio(msg.data);
+          } else if (msg.type === 'debug') {
+            console.log('🔍 Debug message:', msg.step);
           } else if (msg.type === 'error') {
             console.log('❌ Setting error:', msg.data);
             this.state.error = msg.data;
@@ -227,7 +232,9 @@ class VoiceWidget extends HTMLElement {
     // The connection will be closed when we receive the final response or error
     this.connectionTimeout = setTimeout(() => {
       if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-        console.log('🔌 Frontend: Closing WebSocket connection after timeout...');
+        console.log(
+          '🔌 Frontend: Closing WebSocket connection after timeout...'
+        );
         this.ws.close();
       }
     }, 30000); // 30 second timeout
