@@ -73,7 +73,7 @@
       <h3>Test the transcription endpoint:</h3>
       <p>Use the voice recording test page above, or send audio directly:</p>
       <pre style="text-align: left; background: #f0f0f0; padding: 10px; overflow-x: auto;">
-curl -X POST https://hotel-voice-bot.vercel.app/api/transcribe \
+curl -X POST /api/transcribe \
   -H "Content-Type: audio/webm" \
   --data-binary @audio.webm</pre>
     </div>

@@ -197,7 +197,7 @@
         log(`Sending ${audioBlob.size} bytes to /api/transcribe`);
         log(`Content-Type: ${audioBlob.type}`);
         
-        const response = await fetch('https://hotel-voice-bot.vercel.app/api/transcribe', {
+        const response = await fetch('/api/transcribe', {
           method: 'POST',
           headers: {
             'Content-Type': audioBlob.type
