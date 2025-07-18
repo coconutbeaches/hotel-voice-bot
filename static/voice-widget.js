@@ -302,11 +302,61 @@ class VoiceWidget extends HTMLElement {
         this.render();
       };
 
-      await audio.play();
+      try {
+        await audio.play();
+      } catch (err) {
+        if (err.name === 'NotAllowedError') {
+          console.warn(
+            '🔊 Audio autoplay was blocked, showing Tap to Play button'
+          );
+          this.showTapToPlayButton(audio);
+        } else {
+          throw err;
+        }
+      }
     } catch (err) {
       console.error('Error playing audio:', err);
       this.state.error = 'Could not play audio response';
       this.render();
+    }
+  }
+
+  showTapToPlayButton(audioElement) {
+    const aiResponseEl = this.shadowRoot.querySelector('.ai-response');
+    if (aiResponseEl) {
+      // Remove any existing tap-to-play buttons
+      const existingButtons = aiResponseEl.querySelectorAll('.tap-to-play-btn');
+      existingButtons.forEach(btn => btn.remove());
+
+      const button = document.createElement('button');
+      button.textContent = '🔊 Tap to Play';
+      button.className = 'tap-to-play-btn';
+      button.style.marginTop = '10px';
+      button.style.padding = '10px';
+      button.style.border = 'none';
+      button.style.borderRadius = '5px';
+      button.style.background = '#29c6c2';
+      button.style.color = 'white';
+      button.style.cursor = 'pointer';
+      button.style.fontSize = '14px';
+      button.style.fontWeight = '600';
+      button.style.transition = 'all 0.3s ease';
+      button.onmouseover = () => {
+        button.style.background = '#1e9a96';
+      };
+      button.onmouseout = () => {
+        button.style.background = '#29c6c2';
+      };
+      button.onclick = async () => {
+        try {
+          await audioElement.play();
+          button.remove();
+          console.log('🔊 Audio played successfully after user interaction');
+        } catch (err) {
+          console.error('❌ Error playing audio on user interaction:', err);
+        }
+      };
+      aiResponseEl.appendChild(button);
     }
   }
 
@@ -566,6 +616,9 @@ class VoiceWidget extends HTMLElement {
     const aiResponseEl = this.shadowRoot.querySelector('.ai-response');
     if (aiResponseEl) {
       aiResponseEl.textContent = this.state.aiResponse;
+      // Remove any existing tap-to-play buttons when response is updated
+      const existingButtons = aiResponseEl.querySelectorAll('.tap-to-play-btn');
+      existingButtons.forEach(btn => btn.remove());
     }
   }
 }
