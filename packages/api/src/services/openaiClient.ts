@@ -1,6 +1,8 @@
-import { createReadStream, readFileSync } from 'fs';
+import fs from 'fs';
+import path from 'path';
 import { Readable } from 'stream';
 
+import { fileTypeFromBuffer } from 'file-type';
 import OpenAI from 'openai';
 
 import { logger } from '../utils/logger.js';
@@ -101,43 +103,25 @@ export const openaiClient = {
   },
 };
 
-// Export for file-based transcription (used by Vercel Functions)
-export async function transcribeAudio(filePath: string): Promise<string> {
-  try {
-    logger.info('[DEBUG] Uploading to Whisper:', { filePath });
+export async function transcribeAudio(filePath: string) {
+  const audioBuffer = fs.readFileSync(filePath);
+  const fileType = await fileTypeFromBuffer(audioBuffer);
 
-    // Read the file as a buffer
-    const audioBuffer = readFileSync(filePath);
-
-    // Create a file object with proper metadata
-    const file = {
-      arrayBuffer: async () => audioBuffer,
-      stream: () => Readable.from(audioBuffer),
-      blob: async () => new Blob([audioBuffer]),
-      name: filePath.split('/').pop() || 'audio.webm',
-      size: audioBuffer.length,
-    } as any;
-
-    logger.info('[DEBUG] File object created:', {
-      name: file.name,
-      size: file.size,
-    });
-
-    const transcription = await openai.audio.transcriptions.create({
-      file: file,
-      model: 'whisper-1',
-    });
-
-    logger.info('Transcription result:', transcription.text);
-
-    return transcription.text;
-  } catch (error: any) {
-    logger.error('❌ Whisper API Error:', error);
-    logger.error('Error details:', error.response?.data || error.message);
-    throw new Error(
-      error.response?.data?.error?.message ||
-        error.message ||
-        'Unknown transcription error'
-    );
+  if (!fileType || !fileType.mime.startsWith('audio/')) {
+    throw new Error(`Unsupported audio file type: ${fileType?.mime}`);
   }
+
+  const fileName = path.basename(filePath);
+
+  const response = await openai.audio.transcriptions.create({
+    file: {
+      value: audioBuffer,
+      name: fileName,
+      type: fileType.mime,
+    },
+    model: 'whisper-1',
+    response_format: 'json',
+  });
+
+  return response.text;
 }
