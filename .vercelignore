@@ -1,5 +1,6 @@
 # Exclude all packages from deployment
 packages/
+apps/
 node_modules/
 .env*
 .git/
