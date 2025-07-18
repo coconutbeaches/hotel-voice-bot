@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Voice Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        button {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 20px 0;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        button.recording {
+            background-color: #dc3545;
+        }
+        #status {
+            text-align: center;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        #status.info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+        #status.success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        #status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            border-left: 4px solid #007bff;
+        }
+        #debug {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f0f0f0;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎤 Simple Voice Transcription Test</h1>
+        
+        <button id="recordBtn">Start Recording</button>
+        
+        <div id="status" class="info">Ready to record</div>
+        
+        <div id="result" style="display: none;">
+            <h3>Transcription Result:</h3>
+            <p id="transcriptionText"></p>
+        </div>
+        
+        <div id="debug"></div>
+    </div>
+
+    <script>
+        let isRecording = false;
+        let mediaRecorder = null;
+        let audioChunks = [];
+        
+        const recordBtn = document.getElementById('recordBtn');
+        const statusDiv = document.getElementById('status');
+        const resultDiv = document.getElementById('result');
+        const transcriptionText = document.getElementById('transcriptionText');
+        const debugDiv = document.getElementById('debug');
+        
+        function log(message) {
+            const time = new Date().toLocaleTimeString();
+            debugDiv.innerHTML += `[${time}] ${message}<br>`;
+            debugDiv.scrollTop = debugDiv.scrollHeight;
+            console.log(message);
+        }
+        
+        function updateStatus(message, type = 'info') {
+            statusDiv.textContent = message;
+            statusDiv.className = type;
+        }
+        
+        recordBtn.addEventListener('click', async () => {
+            if (!isRecording) {
+                // Start recording
+                try {
+                    log('Requesting microphone access...');
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    log('Microphone access granted');
+                    
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+                    
+                    mediaRecorder.ondataavailable = (event) => {
+                        audioChunks.push(event.data);
+                        log(`Audio chunk received: ${event.data.size} bytes`);
+                    };
+                    
+                    mediaRecorder.onstop = async () => {
+                        log('Recording stopped, creating audio blob...');
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                        log(`Audio blob created: ${audioBlob.size} bytes`);
+                        
+                        // Stop the stream
+                        stream.getTracks().forEach(track => track.stop());
+                        
+                        // Send to API
+                        await sendAudio(audioBlob);
+                    };
+                    
+                    mediaRecorder.start();
+                    isRecording = true;
+                    recordBtn.textContent = 'Stop Recording';
+                    recordBtn.classList.add('recording');
+                    updateStatus('Recording... Speak now!', 'info');
+                    log('Recording started');
+                    
+                } catch (error) {
+                    log(`Error: ${error.message}`);
+                    updateStatus(`Error: ${error.message}`, 'error');
+                }
+            } else {
+                // Stop recording
+                log('Stopping recording...');
+                mediaRecorder.stop();
+                isRecording = false;
+                recordBtn.textContent = 'Start Recording';
+                recordBtn.classList.remove('recording');
+                recordBtn.disabled = true;
+                updateStatus('Processing...', 'info');
+            }
+        });
+        
+        async function sendAudio(audioBlob) {
+            try {
+                updateStatus('Sending audio for transcription...', 'info');
+                log(`Sending ${audioBlob.size} bytes to API...`);
+                
+                const response = await fetch('/api/transcribe', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'audio/webm'
+                    },
+                    body: audioBlob
+                });
+                
+                log(`Response status: ${response.status}`);
+                
+                const data = await response.json();
+                log(`Response data: ${JSON.stringify(data)}`);
+                
+                if (response.ok) {
+                    transcriptionText.textContent = data.transcription || 'No transcription returned';
+                    resultDiv.style.display = 'block';
+                    updateStatus('Transcription complete!', 'success');
+                } else {
+                    throw new Error(data.error || 'Transcription failed');
+                }
+                
+            } catch (error) {
+                log(`Error: ${error.message}`);
+                updateStatus(`Error: ${error.message}`, 'error');
+                resultDiv.style.display = 'none';
+            } finally {
+                recordBtn.disabled = false;
+            }
+        }
+        
+        // Check browser support
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            updateStatus('Your browser does not support audio recording', 'error');
+            recordBtn.disabled = true;
+            log('Browser does not support audio recording');
+        } else {
+            log('Browser supports audio recording');
+            log('Ready to record');
+        }
+    </script>
+</body>
+</html>
