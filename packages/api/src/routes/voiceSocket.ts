@@ -118,28 +118,32 @@ Keep responses concise for voice. User said: "${transcript}"`;
         isLast?: boolean;
       }) => {
         try {
-          // Temporary debug logs at the very start
+          // Enhanced debug logs at the very start
           console.log('[C1-DEBUG] Received audio-chunk');
-          console.log('[C1-DEBUG] Object.keys:', Object.keys(data));
           console.log('[C1-DEBUG] typeof data.audio:', typeof data.audio);
+          console.log('[C1-DEBUG] is Buffer:', Buffer.isBuffer(data.audio));
           console.log(
-            '[C1-DEBUG] audio (first 40):',
-            typeof data.audio === 'string'
-              ? data.audio.slice(0, 40)
-              : '[non-string]'
+            '[C1-DEBUG] audio instanceof Uint8Array:',
+            data.audio instanceof Uint8Array
           );
-          console.log('[C1-DEBUG] audio.length:', data.audio?.length);
+          console.log('[C1-DEBUG] audio length:', data.audio?.length);
+          console.log(
+            '[C1-DEBUG] audio (hex preview):',
+            typeof data.audio === 'string'
+              ? data.audio.slice(0, 16)
+              : Buffer.from(data.audio).toString('hex').slice(0, 16)
+          );
 
-          // C1 Log every incoming audio-chunk payload
-          console.log('[C1-DEBUG] Raw incoming chunk:', {
-            keys: Object.keys(data || {}),
-            types: {
-              audio: typeof data?.audio,
-              chunk: typeof data?.chunk,
-            },
-            audioLength: data?.audio?.length,
-            chunkLength: data?.chunk?.length,
-          });
+          try {
+            const buffer = Buffer.from(data.audio);
+            console.log(
+              '[C1-DEBUG] ✅ Buffer.from() succeeded:',
+              buffer.length,
+              'bytes'
+            );
+          } catch (e) {
+            console.error('[C1-DEBUG] ❌ Buffer.from() failed:', e.message);
+          }
 
           // C1 Robust chunk handler validation
           if (!data || (!data.audio && !data.chunk)) {
