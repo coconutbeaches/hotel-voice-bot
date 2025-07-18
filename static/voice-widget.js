@@ -73,10 +73,28 @@ class VoiceWidget extends HTMLElement {
         },
       });
 
-      // Setup MediaRecorder
-      this.mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus',
-      });
+      // Setup MediaRecorder with explicit MIME type for Whisper compatibility
+      let options = { mimeType: 'audio/webm;codecs=opus' };
+
+      // Safari detection
+      const isSafari = /^((?!chrome|android).)*safari/i.test(
+        navigator.userAgent
+      );
+      if (isSafari) {
+        console.log('🎙️ Safari detected – using audio/mp4 for compatibility');
+        options.mimeType = 'audio/mp4';
+      } else {
+        // Check if the preferred MIME type is supported
+        if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+          console.warn(
+            '🚨 Preferred MIME type not supported, falling back to basic webm'
+          );
+          options.mimeType = 'audio/webm';
+        }
+      }
+
+      console.log('🎤 Using MediaRecorder MIME type:', options.mimeType);
+      this.mediaRecorder = new MediaRecorder(stream, options);
 
       // Connect WebSocket - Use Fly.io backend for real-time voice processing
       // Production: wss://coconut-voice-socket.fly.dev/voice
@@ -175,6 +193,9 @@ class VoiceWidget extends HTMLElement {
           timestamp: new Date().toISOString(),
         });
 
+        // Log the MIME type to verify it's correct for Whisper
+        console.log('🎧 Audio chunk MIME type:', e.data.type);
+
         if (
           e.data.size > 0 &&
           this.ws &&
@@ -197,6 +218,11 @@ class VoiceWidget extends HTMLElement {
 
       this.mediaRecorder.onstop = () => {
         console.log('🛑 Frontend: MediaRecorder stopped, cleaning up...');
+
+        // Create final blob to verify MIME type - use the same type as MediaRecorder
+        const finalAudioBlob = new Blob([], { type: options.mimeType });
+        console.log('🎧 Final recording MIME type:', finalAudioBlob.type);
+
         stream.getTracks().forEach(track => track.stop());
 
         console.log('📶 Frontend: WebSocket state check:', {
