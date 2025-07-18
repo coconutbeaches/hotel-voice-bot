@@ -1,5 +1,5 @@
 /* eslint-env node */
-import { createReadStream } from 'fs';
+import { createReadStream, statSync } from 'fs';
 import { writeFile, unlink } from 'fs/promises';
 import { createServer } from 'http';
 import { tmpdir } from 'os';
@@ -217,7 +217,13 @@ async function processAudioBuffer(ws, connectionId) {
 
     // Save to temporary file
     const tempFile = join(tmpdir(), `voice-${connectionId}-${Date.now()}.webm`);
+    console.log('💾 Writing audio to temp file:', tempFile);
     await writeFile(tempFile, combinedBuffer);
+    console.log('✅ Audio file written successfully:', {
+      path: tempFile,
+      size: combinedBuffer.length,
+      exists: true,
+    });
 
     try {
       // Step 1: Transcribe audio using Whisper
@@ -240,10 +246,12 @@ async function processAudioBuffer(ws, connectionId) {
 
       try {
         // Create multipart/form-data for the OpenAI API
+        console.log('📤 Preparing multipart/form-data for OpenAI API upload');
         const form = new FormData();
 
         // Required fields
-        form.append('file', combinedBuffer, {
+        console.log('📁 Adding file stream to form data:', tempFile);
+        form.append('file', createReadStream(tempFile), {
           filename: 'audio.webm',
           contentType: 'audio/webm',
         });
@@ -252,6 +260,13 @@ async function processAudioBuffer(ws, connectionId) {
           'response_format',
           process.env.WHISPER_RESPONSE_FORMAT || 'json'
         );
+
+        console.log('🔧 Form data prepared with:', {
+          model: process.env.WHISPER_MODEL || 'whisper-1',
+          response_format: process.env.WHISPER_RESPONSE_FORMAT || 'json',
+          filename: 'audio.webm',
+          filePath: tempFile,
+        });
 
         // Optional parameters (add if specified in environment)
         if (process.env.WHISPER_TEMPERATURE) {
