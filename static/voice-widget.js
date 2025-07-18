@@ -76,13 +76,15 @@ class VoiceWidget extends HTMLElement {
       // Setup MediaRecorder with explicit MIME type for Whisper compatibility
       let options = { mimeType: 'audio/webm;codecs=opus' };
 
-      // Safari detection
+      // Safari detection - switch to WebM for better Whisper compatibility
       const isSafari = /^((?!chrome|android).)*safari/i.test(
         navigator.userAgent
       );
       if (isSafari) {
-        console.log('🎙️ Safari detected – using audio/mp4 for compatibility');
-        options.mimeType = 'audio/mp4';
+        console.log(
+          '🎙️ Safari detected – using audio/webm for Whisper compatibility'
+        );
+        options.mimeType = 'audio/webm';
       } else {
         // Check if the preferred MIME type is supported
         if (!MediaRecorder.isTypeSupported(options.mimeType)) {
