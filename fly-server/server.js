@@ -106,11 +106,12 @@ wss.on('connection', (ws, req) => {
           const message = JSON.parse(potentialJson);
 
           // If we successfully parsed JSON, treat it as a text message
-          console.log('📝 Received JSON message:', message);
+          console.log('[C1-DIAG] 📝 Received JSON message:', message);
 
           if (message.type === 'stop') {
             // Process accumulated audio
-            console.log('🛑 Stop message received');
+            console.log('[C1-DIAG] 🛑 Stop message received');
+            console.log('[C1-DIAG] [Transcription STARTED]', new Date().toISOString());
             // Send debug message to frontend
             ws.send(
               JSON.stringify({
@@ -118,17 +119,23 @@ wss.on('connection', (ws, req) => {
                 step: 'Stop message received, starting audio processing...',
               })
             );
-            await processAudioBuffer(ws, connectionId);
+            
+            try {
+              await processAudioBuffer(ws, connectionId);
+            } catch (processError) {
+              console.error('[C1-DIAG] [Transcription FAILED]', new Date().toISOString(), '- Full stack trace:', processError.stack);
+              throw processError;
+            }
           }
           return;
         } catch (jsonError) {
           // Not JSON, treat as audio data
           console.log(
-            '📡 Backend: Received audio chunk:',
+            '[C1-DIAG] 📡 Backend: Received audio chunk:',
             data.length,
             'bytes'
           );
-          console.log('🔍 Backend: First few bytes:', data.slice(0, 5));
+          console.log('[C1-DIAG] 🔍 Backend: First few bytes:', data.slice(0, 5));
 
           // Add to buffer
           const buffer = audioBuffers.get(connectionId) || [];
@@ -146,11 +153,12 @@ wss.on('connection', (ws, req) => {
       } else {
         // Text message (JSON)
         const message = JSON.parse(data.toString());
-        console.log('📝 Received text message:', message);
+        console.log('[C1-DIAG] 📝 Received text message:', message);
 
         if (message.type === 'stop') {
           // Process accumulated audio
-          console.log('🛑 Stop message received');
+          console.log('[C1-DIAG] 🛑 Stop message received');
+          console.log('[C1-DIAG] [Transcription STARTED]', new Date().toISOString());
           // Send debug message to frontend
           ws.send(
             JSON.stringify({
@@ -158,11 +166,17 @@ wss.on('connection', (ws, req) => {
               step: 'Stop message received, starting audio processing...',
             })
           );
-          await processAudioBuffer(ws, connectionId);
+          
+          try {
+            await processAudioBuffer(ws, connectionId);
+          } catch (processError) {
+            console.error('[C1-DIAG] [Transcription FAILED]', new Date().toISOString(), '- Full stack trace:', processError.stack);
+            throw processError;
+          }
         }
       }
     } catch (error) {
-      console.error('❌ Error processing message:', error);
+      console.error('[C1-DIAG] ❌ Error processing message:', error);
       ws.send(
         JSON.stringify({
           type: 'error',
@@ -197,12 +211,12 @@ async function processAudioBuffer(ws, connectionId) {
       return;
     }
 
-    console.log('🎵 Processing audio buffer with', buffer.length, 'chunks');
+    console.log('[C1-DIAG] 🎵 Processing audio buffer with', buffer.length, 'chunks');
 
     // Combine all audio chunks
     const combinedBuffer = Buffer.concat(buffer);
-    console.log('🟢 Audio buffer assembled');
-    console.log('📦 Combined audio size:', combinedBuffer.length, 'bytes');
+    console.log('[C1-DIAG] 🟢 Audio buffer assembled');
+    console.log('[C1-DIAG] 📦 Combined audio size:', combinedBuffer.length, 'bytes');
 
     // Clear the buffer
     audioBuffers.set(connectionId, []);
@@ -217,18 +231,26 @@ async function processAudioBuffer(ws, connectionId) {
 
     // Save to temporary file
     const tempFile = join(tmpdir(), `voice-${connectionId}-${Date.now()}.webm`);
-    console.log('💾 Writing audio to temp file:', tempFile);
+    console.log('[C1-DIAG] 💾 Writing audio to temp file:', tempFile);
+    console.log('[C1-DIAG] 💾 Temp file path:', tempFile);
+    console.log('[C1-DIAG] 💾 Temp file size:', combinedBuffer.length, 'bytes');
     await writeFile(tempFile, combinedBuffer);
-    console.log('✅ Audio file written successfully:', {
+    
+    // Get file stats after writing
+    const stats = statSync(tempFile);
+    console.log('[C1-DIAG] ✅ Audio file written successfully:', {
       path: tempFile,
       size: combinedBuffer.length,
+      fileSize: stats.size,
       exists: true,
+      firstBytes: combinedBuffer.slice(0, 20).toString('hex'),
+      isValidWebM: combinedBuffer.slice(0, 4).toString('hex') === '1f43b675'
     });
 
     try {
       // Step 1: Transcribe audio using Whisper
-      console.log('🎧 Transcribing audio...');
-      console.log('🔍 Backend: Audio file details:', {
+      console.log('[C1-DIAG] 🎧 Transcribing audio...');
+      console.log('[C1-DIAG] 🔍 Backend: Audio file details:', {
         path: tempFile,
         size: combinedBuffer.length,
         firstBytes: combinedBuffer.slice(0, 10),
@@ -246,11 +268,11 @@ async function processAudioBuffer(ws, connectionId) {
 
       try {
         // Create multipart/form-data for the OpenAI API
-        console.log('📤 Preparing multipart/form-data for OpenAI API upload');
+        console.log('[C1-DIAG] 📤 Preparing multipart/form-data for OpenAI API upload');
         const form = new FormData();
 
         // Required fields
-        console.log('📁 Adding file stream to form data:', tempFile);
+        console.log('[C1-DIAG] 📁 Adding file stream to form data:', tempFile);
         form.append('file', createReadStream(tempFile), {
           filename: 'audio.webm',
           contentType: 'audio/webm',
@@ -261,12 +283,18 @@ async function processAudioBuffer(ws, connectionId) {
           process.env.WHISPER_RESPONSE_FORMAT || 'json'
         );
 
-        console.log('🔧 Form data prepared with:', {
+        // Log all Whisper API request metadata
+        const whisperMetadata = {
           model: process.env.WHISPER_MODEL || 'whisper-1',
           response_format: process.env.WHISPER_RESPONSE_FORMAT || 'json',
           filename: 'audio.webm',
+          mimeType: 'audio/webm',
           filePath: tempFile,
-        });
+          language: process.env.WHISPER_LANGUAGE || 'auto-detect',
+          temperature: process.env.WHISPER_TEMPERATURE || 'default',
+          prompt: process.env.WHISPER_PROMPT || 'none'
+        };
+        console.log('[C1-DIAG] 🔧 Form data prepared with metadata:', whisperMetadata);
 
         // Optional parameters (add if specified in environment)
         if (process.env.WHISPER_TEMPERATURE) {
@@ -278,6 +306,8 @@ async function processAudioBuffer(ws, connectionId) {
         if (process.env.WHISPER_PROMPT) {
           form.append('prompt', process.env.WHISPER_PROMPT);
         }
+
+        console.log('[C1-DIAG] 📋 Form headers:', form.getHeaders());
 
         const response = await fetch(
           'https://api.openai.com/v1/audio/transcriptions',
@@ -294,7 +324,10 @@ async function processAudioBuffer(ws, connectionId) {
         if (!response.ok) {
           // Log detailed response info for non-2xx responses
           const errorText = await response.text();
-          console.error('❌ OpenAI API Error:', {
+          console.error('[C1-DIAG] ❌ OpenAI API Error - Full status code:', response.status);
+          console.error('[C1-DIAG] ❌ OpenAI API Error - Full response body:', errorText);
+          console.error('[C1-DIAG] ❌ OpenAI API Error - Full headers:', Object.fromEntries(response.headers.entries()));
+          console.error('[C1-DIAG] ❌ OpenAI API Error - Complete details:', {
             status: response.status,
             statusText: response.statusText,
             responseBody: errorText,
@@ -309,13 +342,14 @@ async function processAudioBuffer(ws, connectionId) {
         const transcription = await response.json();
 
         userMessage = transcription.text;
-        console.log('📝 Whisper transcription done:', userMessage);
+        console.log('[C1-DIAG] 📝 Whisper transcription done:', userMessage);
 
         if (!userMessage || userMessage.trim() === '') {
-          console.warn('⚠️ Backend: Empty transcription result');
+          console.warn('[C1-DIAG] ⚠️ Backend: Empty transcription result');
         }
       } catch (transcriptionError) {
-        console.error('❌ Backend: Transcription API error:', {
+        console.error('[C1-DIAG] ❌ Backend: Transcription API error - Full stack trace:', transcriptionError.stack);
+        console.error('[C1-DIAG] ❌ Backend: Transcription API error - Details:', {
           message: transcriptionError.message,
           code: transcriptionError.code,
           type: transcriptionError.type,
@@ -325,16 +359,14 @@ async function processAudioBuffer(ws, connectionId) {
         // Try to provide more specific error info
         if (transcriptionError.message.includes('format')) {
           console.error(
-            '🚨 Backend: Audio format issue detected. WebM may not be supported.'
+            '[C1-DIAG] 🚨 Backend: Audio format issue detected. WebM may not be supported.'
           );
         }
 
         throw transcriptionError;
       }
-
-      // Send transcription to client
       console.log(
-        '📤 Backend: Sending transcription to frontend:',
+        '[C1-DIAG] 📤 Backend: Sending transcription to frontend:',
         userMessage
       );
       ws.send(
@@ -363,7 +395,7 @@ async function processAudioBuffer(ws, connectionId) {
       }
 
       // Step 2: Generate AI response using GPT-4o
-      console.log('🤖 Generating AI response...');
+      console.log('[C1-DIAG] 🤖 Generating AI response...');
       ws.send(
         JSON.stringify({
           type: 'status',
@@ -395,10 +427,10 @@ async function processAudioBuffer(ws, connectionId) {
       });
 
       const aiResponse = completion.choices[0].message.content;
-      console.log('🤖 GPT-4o reply:', aiResponse);
+      console.log('[C1-DIAG] 🤖 GPT-4o reply:', aiResponse);
 
       // Send AI response to client
-      console.log('📤 Backend: Sending AI response to frontend:', aiResponse);
+      console.log('[C1-DIAG] 📤 Backend: Sending AI response to frontend:', aiResponse);
       ws.send(
         JSON.stringify({
           type: 'ai_response',
@@ -415,7 +447,7 @@ async function processAudioBuffer(ws, connectionId) {
       );
 
       // Step 3: Convert AI response to speech using TTS
-      console.log('🔊 Converting to speech...');
+      console.log('[C1-DIAG] 🔊 Converting to speech...');
       ws.send(
         JSON.stringify({
           type: 'status',
@@ -433,13 +465,13 @@ async function processAudioBuffer(ws, connectionId) {
 
       // Convert response to buffer
       const audioBuffer = Buffer.from(await speech.arrayBuffer());
-      console.log('🔊 TTS synthesis complete');
-      console.log('🎵 Generated audio size:', audioBuffer.length, 'bytes');
+      console.log('[C1-DIAG] 🔊 TTS synthesis complete');
+      console.log('[C1-DIAG] 🎵 Generated audio size:', audioBuffer.length, 'bytes');
 
       // Send audio as base64 to client
       const audioBase64 = audioBuffer.toString('base64');
       console.log(
-        '📤 Backend: Sending TTS audio to frontend, size:',
+        '[C1-DIAG] 📤 Backend: Sending TTS audio to frontend, size:',
         audioBase64.length,
         'chars'
       );
@@ -458,9 +490,10 @@ async function processAudioBuffer(ws, connectionId) {
         })
       );
 
-      console.log('✅ Voice conversation completed successfully');
+      console.log('[C1-DIAG] ✅ Voice conversation completed successfully');
     } catch (error) {
-      console.error('❌ Error in voice processing pipeline:', error);
+      console.error('[C1-DIAG] ❌ Error in voice processing pipeline - Full stack trace:', error.stack);
+      console.error('[C1-DIAG] ❌ Error in voice processing pipeline:', error);
       ws.send(
         JSON.stringify({
           type: 'error',
@@ -476,7 +509,8 @@ async function processAudioBuffer(ws, connectionId) {
       }
     }
   } catch (error) {
-    console.error('❌ Error in processAudioBuffer:', error);
+    console.error('[C1-DIAG] ❌ Error in processAudioBuffer - Full stack trace:', error.stack);
+    console.error('[C1-DIAG] ❌ Error in processAudioBuffer:', error);
     ws.send(
       JSON.stringify({
         type: 'error',

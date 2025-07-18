@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Transcription Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        button { background-color: #007bff; color: white; border: none; padding: 12px 24px; border-radius: 5px; cursor: pointer; margin: 10px 0; }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        .recording { background-color: #dc3545 !important; }
+        .log { background-color: #f8f9fa; border: 1px solid #dee2e6; padding: 15px; max-height: 400px; overflow-y: auto; font-family: monospace; white-space: pre-wrap; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; font-weight: bold; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        .transcript { background-color: #e7f3ff; padding: 15px; margin: 10px 0; border-radius: 5px; min-height: 60px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎤 Voice Transcription Test</h1>
+        <p>Test the complete voice transcription pipeline with WebSocket connection to https://hotel-voice-bot.fly.dev</p>
+        
+        <div>
+            <button id="startRecording">Start Recording</button>
+            <button id="stopRecording" disabled>Stop Recording</button>
+            <button id="clearLogs">Clear Logs</button>
+        </div>
+        
+        <div id="connectionStatus" class="status info">Disconnected</div>
+        <div id="transcript" class="transcript">Transcript will appear here...</div>
+        
+        <h3>Debug Logs</h3>
+        <div id="debugLog" class="log">Debug logs will appear here...</div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+        let socket = null;
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let isRecording = false;
+
+        const startButton = document.getElementById('startRecording');
+        const stopButton = document.getElementById('stopRecording');
+        const clearButton = document.getElementById('clearLogs');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const transcript = document.getElementById('transcript');
+        const debugLog = document.getElementById('debugLog');
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toISOString();
+            const logMessage = `[${timestamp}] [${type.toUpperCase()}] ${message}`;
+            console.log(logMessage);
+            debugLog.textContent += logMessage + '\n';
+            debugLog.scrollTop = debugLog.scrollHeight;
+        }
+
+        function initializeSocket() {
+            log('Connecting to WebSocket server...');
+            socket = io('https://hotel-voice-bot.fly.dev');
+            
+            socket.on('connect', () => {
+                log('✅ Connected to WebSocket server');
+                connectionStatus.textContent = 'Connected';
+                connectionStatus.className = 'status success';
+            });
+
+            socket.on('disconnect', () => {
+                log('❌ Disconnected from WebSocket server');
+                connectionStatus.textContent = 'Disconnected';
+                connectionStatus.className = 'status error';
+            });
+
+            socket.on('transcription', (data) => {
+                log(`📝 Received transcription: ${data.text}`);
+                transcript.textContent = data.text;
+            });
+
+            socket.on('error', (error) => {
+                log(`❌ WebSocket error: ${error.message}`, 'error');
+            });
+
+            socket.on('voice-response', (data) => {
+                log(`🤖 Received AI response: ${data.text}`);
+                transcript.textContent += `\n\nAI Response: ${data.text}`;
+            });
+        }
+
+        async function startRecording() {
+            try {
+                log('🎤 Starting recording...');
+                
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        sampleRate: 16000
+                    } 
+                });
+
+                mediaRecorder = new MediaRecorder(stream, {
+                    mimeType: 'audio/webm'
+                });
+
+                audioChunks = [];
+                isRecording = true;
+
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        audioChunks.push(event.data);
+                        log(`📦 Audio chunk received: ${event.data.size} bytes`);
+                    }
+                };
+
+                mediaRecorder.onstop = async () => {
+                    log('🛑 Recording stopped, processing audio...');
+                    
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    const arrayBuffer = await audioBlob.arrayBuffer();
+                    
+                    log(`📤 Sending audio data: ${arrayBuffer.byteLength} bytes`);
+                    
+                    if (socket) {
+                        socket.emit('voice-data', arrayBuffer);
+                    } else {
+                        log('❌ Socket not connected', 'error');
+                    }
+                    
+                    // Stop all tracks
+                    stream.getTracks().forEach(track => track.stop());
+                };
+
+                mediaRecorder.start();
+                startButton.disabled = true;
+                stopButton.disabled = false;
+                startButton.textContent = 'Recording...';
+                startButton.className = 'recording';
+                
+                log('✅ Recording started');
+                
+            } catch (error) {
+                log(`❌ Error starting recording: ${error.message}`, 'error');
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && isRecording) {
+                log('🛑 Stopping recording...');
+                mediaRecorder.stop();
+                isRecording = false;
+                startButton.disabled = false;
+                stopButton.disabled = true;
+                startButton.textContent = 'Start Recording';
+                startButton.className = '';
+            }
+        }
+
+        function clearLogs() {
+            debugLog.textContent = '';
+            transcript.textContent = 'Transcript will appear here...';
+        }
+
+        // Event listeners
+        startButton.addEventListener('click', startRecording);
+        stopButton.addEventListener('click', stopRecording);
+        clearButton.addEventListener('click', clearLogs);
+
+        // Initialize
+        initializeSocket();
+        log('🚀 Voice transcription test initialized');
+    </script>
+</body>
+</html>
