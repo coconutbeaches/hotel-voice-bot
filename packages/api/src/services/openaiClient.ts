@@ -36,9 +36,11 @@ export const openaiClient = {
 
       return transcription.text;
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        logger.error('Error transcribing audio:', error);
-      }
+      logger.error('Error transcribing audio with full details:', {
+        message: error.message,
+        response: error.response?.data,
+        stack: error.stack
+      });
       throw error;
     }
   },
@@ -60,9 +62,11 @@ export const openaiClient = {
 
       return buffer;
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        logger.error('Error converting text to speech:', error);
-      }
+      logger.error('Error converting text to speech with full details:', {
+        message: error.message,
+        response: error.response?.data,
+        stack: error.stack
+      });
       throw error;
     }
   },
@@ -93,9 +97,11 @@ export const openaiClient = {
 
       return response.trim();
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        logger.error('Error generating response:', error);
-      }
+      logger.error('Error generating response with full details:', {
+        message: error.message,
+        response: error.response?.data,
+        stack: error.stack
+      });
       throw error;
     }
   },

@@ -10,23 +10,41 @@ router.post('/', upload.single('audio'), async (req, res) => {
     if (!req.file) {
       return res.status(400).json({ error: 'No audio file uploaded.' });
     }
-
-    // Transcribe audio
-    const transcript = await openaiClient.transcribeAudio(req.file.buffer);
-    if (!transcript) {
-      return res.status(500).json({ error: 'Failed to transcribe audio.' });
+    
+    let transcript;
+    try {
+      // Transcribe audio
+      transcript = await openaiClient.transcribeAudio(req.file.buffer);
+      if (!transcript) {
+        return res.status(500).json({ error: 'Failed to transcribe audio.' });
+      }
+    } catch (error) {
+      console.error('Error transcribing audio:', error);
+      return res.status(500).json({ error: 'Failed to transcribe audio.', details: error.message });
     }
 
     // Generate response using GPT
-    const textResponse = await openaiClient.generateResponse(transcript);
-    if (!textResponse) {
-      return res.status(500).json({ error: 'Failed to generate text response.' });
+    let textResponse;
+    try {
+      textResponse = await openaiClient.generateResponse(transcript);
+      if (!textResponse) {
+        return res.status(500).json({ error: 'Failed to generate text response.' });
+      }
+    } catch (error) {
+      console.error('Error generating response:', error);
+      return res.status(500).json({ error: 'Failed to generate text response.', details: error.message });
     }
 
     // Convert text response to speech
-    const audioResponse = await openaiClient.textToSpeech(textResponse);
-    if (!audioResponse) {
-      return res.status(500).json({ error: 'Failed to convert text to speech.' });
+    let audioResponse;
+    try {
+      audioResponse = await openaiClient.textToSpeech(textResponse);
+      if (!audioResponse) {
+        return res.status(500).json({ error: 'Failed to convert text to speech.' });
+      }
+    } catch (error) {
+      console.error('Error converting text to speech:', error);
+      return res.status(500).json({ error: 'Failed to convert text to speech.', details: error.message });
     }
 
     // Return audio response

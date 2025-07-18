@@ -93,10 +93,11 @@ wss.on('connection', (ws, req) => {
         }
       }
     } catch (error) {
-      console.error('❌ Error processing message:', error);
+      console.error('❌ Error processing message with full details:', error);
       ws.send(JSON.stringify({
         type: 'error',
-        data: 'Error processing your message: ' + error.message
+        data: 'Error processing your message: ' + error.message,
+        stack: error.stack
       }));
     }
   });
@@ -236,10 +237,11 @@ async function processAudioBuffer(ws, connectionId) {
       console.log('✅ Voice conversation completed successfully');
 
     } catch (error) {
-      console.error('❌ Error in voice processing pipeline:', error);
+      console.error('❌ Error in voice processing pipeline with full details:', error);
       ws.send(JSON.stringify({
         type: 'error',
-        data: 'Sorry, I encountered an error processing your request. Please try again.'
+        data: 'Sorry, I encountered an error processing your request. Please try again.',
+        stack: error.stack
       }));
     } finally {
       // Clean up temp file

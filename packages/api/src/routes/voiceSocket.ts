@@ -96,6 +96,10 @@ export function setupVoiceSocket(server: HTTPServer) {
           const transcript = await openaiClient.transcribeAudio(audioBuffer);
           if (!transcript) {
             throw new Error('Failed to transcribe audio');
+          } catch (error) {
+            logger.error('Error transcribing audio:', error);
+            socket.emit('error', { message: 'Failed to transcribe audio', details: error.message });
+            return;
           }
 
           // Emit final transcription
@@ -119,9 +123,16 @@ Current user message: ${transcript}
 
 Provide a helpful response:`;
 
-          const responseText = await openaiClient.generateResponse(prompt);
-          if (!responseText) {
-            throw new Error('Failed to generate response');
+          let responseText;
+          try {
+            responseText = await openaiClient.generateResponse(prompt);
+            if (!responseText) {
+              throw new Error('Failed to generate response');
+            }
+          } catch (error) {
+            logger.error('Error generating response:', error);
+            socket.emit('error', { message: 'Failed to generate response', details: error.message });
+            return;
           }
 
           // Update context with response
