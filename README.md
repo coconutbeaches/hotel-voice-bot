@@ -159,6 +159,8 @@ The project includes GitHub Actions for automated deployment to AWS ECS. Configu
 
 See `.env.example` for the complete environment configuration template.
 
+> **⚠️ Important**: Always update `.env.example` when adding, removing, or changing environment variables. This ensures proper onboarding for new developers and deployment consistency.
+
 ## API Documentation
 
 API documentation is automatically generated using OpenAPI 3.0 specification and available at:
