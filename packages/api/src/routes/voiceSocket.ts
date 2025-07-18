@@ -118,6 +118,17 @@ Keep responses concise for voice. User said: "${transcript}"`;
         isLast?: boolean;
       }) => {
         try {
+          // C1 Log every incoming audio-chunk payload
+          console.log('[C1-DEBUG] Raw incoming chunk:', {
+            keys: Object.keys(data || {}),
+            types: {
+              audio: typeof data?.audio,
+              chunk: typeof data?.chunk,
+            },
+            audioLength: data?.audio?.length,
+            chunkLength: data?.chunk?.length,
+          });
+
           // C1 Robust chunk handler validation
           if (!data || (!data.audio && !data.chunk)) {
             console.warn(
