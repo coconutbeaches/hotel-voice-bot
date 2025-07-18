@@ -3,38 +3,83 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Voice Transcription Test</title>
+    <title>Voice Transcription Test - Enhanced</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        body { font-family: Arial, sans-serif; max-width: 1000px; margin: 0 auto; padding: 20px; }
         .container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        button { background-color: #007bff; color: white; border: none; padding: 12px 24px; border-radius: 5px; cursor: pointer; margin: 10px 0; }
+        .section { margin-bottom: 30px; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
+        button { background-color: #007bff; color: white; border: none; padding: 12px 24px; border-radius: 5px; cursor: pointer; margin: 10px 5px; }
         button:hover { background-color: #0056b3; }
         button:disabled { background-color: #ccc; cursor: not-allowed; }
         .recording { background-color: #dc3545 !important; }
-        .log { background-color: #f8f9fa; border: 1px solid #dee2e6; padding: 15px; max-height: 400px; overflow-y: auto; font-family: monospace; white-space: pre-wrap; }
+        .log { background-color: #f8f9fa; border: 1px solid #dee2e6; padding: 15px; max-height: 400px; overflow-y: auto; font-family: monospace; white-space: pre-wrap; font-size: 12px; }
         .status { padding: 10px; margin: 10px 0; border-radius: 5px; font-weight: bold; }
         .success { background-color: #d4edda; color: #155724; }
         .error { background-color: #f8d7da; color: #721c24; }
         .info { background-color: #d1ecf1; color: #0c5460; }
         .transcript { background-color: #e7f3ff; padding: 15px; margin: 10px 0; border-radius: 5px; min-height: 60px; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin: 10px 0; }
+        .stat { background-color: #f8f9fa; padding: 10px; border-radius: 5px; text-align: center; }
+        .stat-value { font-size: 24px; font-weight: bold; color: #007bff; }
+        .stat-label { font-size: 12px; color: #6c757d; }
+        select { padding: 8px; margin: 5px; border-radius: 5px; border: 1px solid #ddd; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🎤 Voice Transcription Test</h1>
-        <p>Test the complete voice transcription pipeline with WebSocket connection to https://hotel-voice-bot.fly.dev</p>
+        <h1>🎤 Voice Transcription Test - Enhanced Debug</h1>
+        <p>Test the complete voice transcription pipeline with comprehensive debugging</p>
         
-        <div>
+        <div class="section">
+            <h2>🔊 Audio Settings</h2>
+            <label>Audio Format:</label>
+            <select id="audioFormat">
+                <option value="audio/mp4">MP4 (Recommended)</option>
+                <option value="audio/webm">WebM</option>
+                <option value="audio/wav">WAV</option>
+            </select>
+            
+            <label>Chunk Size:</label>
+            <select id="chunkSize">
+                <option value="1024">1KB chunks</option>
+                <option value="4096">4KB chunks</option>
+                <option value="8192">8KB chunks</option>
+                <option value="0">No chunking</option>
+            </select>
+        </div>
+        
+        <div class="section">
+            <h2>🎙️ Recording Controls</h2>
             <button id="startRecording">Start Recording</button>
             <button id="stopRecording" disabled>Stop Recording</button>
             <button id="clearLogs">Clear Logs</button>
+            <button id="testConnection">Test Connection</button>
+            
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-value" id="audioChunks">0</div>
+                    <div class="stat-label">Audio Chunks</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="totalBytes">0</div>
+                    <div class="stat-label">Total Bytes</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="recordingTime">0</div>
+                    <div class="stat-label">Recording Time (s)</div>
+                </div>
+            </div>
         </div>
         
-        <div id="connectionStatus" class="status info">Disconnected</div>
-        <div id="transcript" class="transcript">Transcript will appear here...</div>
+        <div class="section">
+            <div id="connectionStatus" class="status info">Disconnected</div>
+            <div id="transcript" class="transcript">Transcript will appear here...</div>
+        </div>
         
-        <h3>Debug Logs</h3>
-        <div id="debugLog" class="log">Debug logs will appear here...</div>
+        <div class="section">
+            <h3>🔍 Debug Logs</h3>
+            <div id="debugLog" class="log">Debug logs will appear here...</div>
+        </div>
     </div>
 
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
@@ -43,13 +88,24 @@
         let mediaRecorder = null;
         let audioChunks = [];
         let isRecording = false;
+        let recordingStartTime = null;
+        let recordingInterval = null;
+        let chunkCount = 0;
+        let totalBytesCount = 0;
 
+        // DOM elements
         const startButton = document.getElementById('startRecording');
         const stopButton = document.getElementById('stopRecording');
         const clearButton = document.getElementById('clearLogs');
+        const testConnectionButton = document.getElementById('testConnection');
         const connectionStatus = document.getElementById('connectionStatus');
         const transcript = document.getElementById('transcript');
         const debugLog = document.getElementById('debugLog');
+        const audioChunksElement = document.getElementById('audioChunks');
+        const totalBytesElement = document.getElementById('totalBytes');
+        const recordingTimeElement = document.getElementById('recordingTime');
+        const audioFormatSelect = document.getElementById('audioFormat');
+        const chunkSizeSelect = document.getElementById('chunkSize');
 
         function log(message, type = 'info') {
             const timestamp = new Date().toISOString();
@@ -59,8 +115,17 @@
             debugLog.scrollTop = debugLog.scrollHeight;
         }
 
+        function updateStats() {
+            audioChunksElement.textContent = chunkCount;
+            totalBytesElement.textContent = totalBytesCount;
+            if (recordingStartTime) {
+                const elapsed = Math.round((Date.now() - recordingStartTime) / 1000);
+                recordingTimeElement.textContent = elapsed;
+            }
+        }
+
         function initializeSocket() {
-            log('Connecting to WebSocket server...');
+            log('🔌 Connecting to WebSocket server...');
             socket = io('https://hotel-voice-bot.fly.dev');
             
             socket.on('connect', () => {
@@ -80,19 +145,23 @@
                 transcript.textContent = data.text;
             });
 
-            socket.on('error', (error) => {
-                log(`❌ WebSocket error: ${error.message}`, 'error');
-            });
-
             socket.on('voice-response', (data) => {
                 log(`🤖 Received AI response: ${data.text}`);
-                transcript.textContent += `\n\nAI Response: ${data.text}`;
+                transcript.textContent += `\n\n🤖 AI Response: ${data.text}`;
+            });
+
+            socket.on('error', (error) => {
+                log(`❌ WebSocket error: ${error.message || error}`, 'error');
+                if (error.details) {
+                    log(`   Details: ${error.details}`, 'error');
+                }
             });
         }
 
         async function startRecording() {
             try {
                 log('🎤 Starting recording...');
+                const audioFormat = audioFormatSelect.value;
                 
                 const stream = await navigator.mediaDevices.getUserMedia({ 
                     audio: {
@@ -102,30 +171,56 @@
                     } 
                 });
 
-                mediaRecorder = new MediaRecorder(stream, {
-                    mimeType: 'audio/webm'
-                });
+                // Try to use the selected format, fall back to default
+                let mimeType = audioFormat;
+                if (!MediaRecorder.isTypeSupported(mimeType)) {
+                    mimeType = 'audio/webm';
+                    log(`⚠️ Format ${audioFormat} not supported, using ${mimeType}`, 'warn');
+                }
 
+                mediaRecorder = new MediaRecorder(stream, { mimeType });
+                
                 audioChunks = [];
                 isRecording = true;
+                recordingStartTime = Date.now();
+                chunkCount = 0;
+                totalBytesCount = 0;
+
+                // Start recording timer
+                recordingInterval = setInterval(updateStats, 1000);
 
                 mediaRecorder.ondataavailable = (event) => {
                     if (event.data.size > 0) {
                         audioChunks.push(event.data);
-                        log(`📦 Audio chunk received: ${event.data.size} bytes`);
+                        chunkCount++;
+                        totalBytesCount += event.data.size;
+                        
+                        log(`📦 Audio chunk ${chunkCount}: ${event.data.size} bytes (${event.data.type})`);
+                        updateStats();
                     }
                 };
 
                 mediaRecorder.onstop = async () => {
                     log('🛑 Recording stopped, processing audio...');
+                    clearInterval(recordingInterval);
                     
-                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    const audioBlob = new Blob(audioChunks, { type: mimeType });
                     const arrayBuffer = await audioBlob.arrayBuffer();
                     
-                    log(`📤 Sending audio data: ${arrayBuffer.byteLength} bytes`);
+                    log(`📤 Final audio data: ${arrayBuffer.byteLength} bytes, type: ${audioBlob.type}`);
+                    
+                    const chunkSizeValue = parseInt(chunkSizeSelect.value);
                     
                     if (socket) {
-                        socket.emit('voice-data', arrayBuffer);
+                        if (chunkSizeValue === 0) {
+                            // Send as single buffer
+                            log('📤 Sending complete audio buffer...');
+                            socket.emit('voice-data', arrayBuffer);
+                        } else {
+                            // Send as chunks
+                            log(`📤 Sending audio in ${chunkSizeValue} byte chunks...`);
+                            await sendAudioChunks(arrayBuffer, chunkSizeValue, audioBlob.type);
+                        }
                     } else {
                         log('❌ Socket not connected', 'error');
                     }
@@ -134,16 +229,39 @@
                     stream.getTracks().forEach(track => track.stop());
                 };
 
-                mediaRecorder.start();
+                mediaRecorder.start(1000); // Collect data every second
                 startButton.disabled = true;
                 stopButton.disabled = false;
                 startButton.textContent = 'Recording...';
                 startButton.className = 'recording';
                 
-                log('✅ Recording started');
+                log(`✅ Recording started with format: ${mimeType}`);
                 
             } catch (error) {
                 log(`❌ Error starting recording: ${error.message}`, 'error');
+                resetRecordingState();
+            }
+        }
+
+        async function sendAudioChunks(arrayBuffer, chunkSize, mimeType) {
+            const totalChunks = Math.ceil(arrayBuffer.byteLength / chunkSize);
+            
+            for (let i = 0; i < totalChunks; i++) {
+                const start = i * chunkSize;
+                const end = Math.min(start + chunkSize, arrayBuffer.byteLength);
+                const chunk = arrayBuffer.slice(start, end);
+                const isLast = i === totalChunks - 1;
+                
+                log(`📦 Sending chunk ${i + 1}/${totalChunks}: ${chunk.byteLength} bytes`);
+                
+                socket.emit('audio-chunk', {
+                    chunk: chunk,
+                    mimeType: mimeType,
+                    isLast: isLast
+                });
+                
+                // Small delay to avoid overwhelming the server
+                await new Promise(resolve => setTimeout(resolve, 10));
             }
         }
 
@@ -152,26 +270,47 @@
                 log('🛑 Stopping recording...');
                 mediaRecorder.stop();
                 isRecording = false;
-                startButton.disabled = false;
-                stopButton.disabled = true;
-                startButton.textContent = 'Start Recording';
-                startButton.className = '';
+                resetRecordingState();
+            }
+        }
+
+        function resetRecordingState() {
+            startButton.disabled = false;
+            stopButton.disabled = true;
+            startButton.textContent = 'Start Recording';
+            startButton.className = '';
+            if (recordingInterval) {
+                clearInterval(recordingInterval);
+                recordingInterval = null;
             }
         }
 
         function clearLogs() {
             debugLog.textContent = '';
             transcript.textContent = 'Transcript will appear here...';
+            chunkCount = 0;
+            totalBytesCount = 0;
+            updateStats();
+        }
+
+        function testConnection() {
+            if (socket) {
+                log('🔧 Testing connection...');
+                socket.emit('test-connection', { timestamp: Date.now() });
+            }
         }
 
         // Event listeners
         startButton.addEventListener('click', startRecording);
         stopButton.addEventListener('click', stopRecording);
         clearButton.addEventListener('click', clearLogs);
+        testConnectionButton.addEventListener('click', testConnection);
 
         // Initialize
         initializeSocket();
-        log('🚀 Voice transcription test initialized');
+        updateStats();
+        log('🚀 Enhanced voice transcription test initialized');
+        log(`📱 Supported formats: ${['audio/mp4', 'audio/webm', 'audio/wav'].filter(MediaRecorder.isTypeSupported).join(', ')}`);
     </script>
 </body>
 </html>

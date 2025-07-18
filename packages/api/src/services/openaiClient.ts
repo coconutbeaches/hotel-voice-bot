@@ -15,49 +15,112 @@ interface OpenAITranscriptionResult {
 
 export const openaiClient = {
   async transcribeAudio(audioBuffer: Buffer): Promise<string> {
-    const tempFilePath = join(tmpdir(), `audio_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.webm`);
+    const timestamp = Date.now();
+    const randomId = Math.random().toString(36).substring(2, 8);
+    
+    // 🎧 Determine file extension based on buffer content
+    let fileExtension = 'mp4';
+    let mimeType = 'audio/mp4';
+    
+    // Check for common audio file signatures
+    const headerBytes = audioBuffer.slice(0, 12);
+    const header = headerBytes.toString('hex');
+    
+    if (header.startsWith('1a45dfa3')) {
+      fileExtension = 'webm';
+      mimeType = 'audio/webm';
+    } else if (header.includes('667479706d703434') || header.includes('667479706d703432')) {
+      fileExtension = 'mp4';
+      mimeType = 'audio/mp4';
+    } else if (header.startsWith('52494646')) {
+      fileExtension = 'wav';
+      mimeType = 'audio/wav';
+    }
+    
+    const tempFilePath = join(tmpdir(), `speech_${timestamp}_${randomId}.${fileExtension}`);
     
     try {
+      // 🧱 Verify buffer integrity
       if (!audioBuffer || audioBuffer.length === 0) {
         throw new Error('Empty or invalid audio buffer');
       }
 
-      logger.info(`[transcribeAudio] Processing ${audioBuffer.length} bytes of audio data`);
+      logger.info('[transcribeAudio] Processing audio buffer', {
+        size: audioBuffer.length,
+        detectedMimeType: mimeType,
+        fileExtension: fileExtension,
+        tempFilePath: tempFilePath
+      });
+
+      // 🧪 Debug: Log first 100 bytes as base64
+      const debugBytes = audioBuffer.slice(0, 100).toString('base64');
+      logger.debug('[transcribeAudio] First 100 bytes (base64):', debugBytes);
+
+      // 🧪 Debug: Log header information
+      const headerHex = audioBuffer.slice(0, 16).toString('hex');
+      logger.debug('[transcribeAudio] File header (hex):', headerHex);
       
       // Write buffer to temporary file
       writeFileSync(tempFilePath, audioBuffer);
       const fileStats = statSync(tempFilePath);
-      logger.info(`[transcribeAudio] Created temporary file: ${tempFilePath} (${fileStats.size} bytes)`);
+      
+      // Verify file was written correctly
+      if (fileStats.size !== audioBuffer.length) {
+        throw new Error(`File size mismatch: buffer=${audioBuffer.length}, file=${fileStats.size}`);
+      }
+      
+      logger.info('[transcribeAudio] Temporary file created successfully', {
+        path: tempFilePath,
+        size: fileStats.size,
+        mimeType: mimeType
+      });
 
-      // Create FormData and let form-data handle headers automatically
+      // 🎧 Create FormData with proper audio format
       const form = new FormData();
       form.append('file', createReadStream(tempFilePath), {
-        filename: 'audio.webm',
-        contentType: 'audio/webm'
+        filename: `speech.${fileExtension}`,
+        contentType: mimeType
       });
       form.append('model', 'whisper-1');
       form.append('response_format', 'json');
       form.append('language', 'en');
 
-      logger.info('[transcribeAudio] Sending request to OpenAI Whisper API...');
+      logger.info('[transcribeAudio] Sending request to OpenAI Whisper API', {
+        filename: `speech.${fileExtension}`,
+        contentType: mimeType,
+        fileSize: fileStats.size
+      });
 
-      // Use form directly as body, let form-data set headers
+      // 🧪 Debug: Log form headers
+      const formHeaders = form.getHeaders();
+      logger.debug('[transcribeAudio] Form headers:', formHeaders);
+
+      // Make API request
       const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-          // Let form-data set the Content-Type header with boundary
-          ...form.getHeaders()
+          ...formHeaders
         },
         body: form
       });
 
-      logger.info(`[transcribeAudio] Response status: ${response.status} ${response.statusText}`);
+      logger.info('[transcribeAudio] OpenAI API response', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries())
+      });
 
       if (!response.ok) {
-        // Get full response body for debugging
+        // 🛡️ Get full response body for debugging
         const errorBody = await response.text();
-        logger.error(`[transcribeAudio] OpenAI API error ${response.status}: ${errorBody}`);
+        logger.error('[transcribeAudio] OpenAI API error', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorBody,
+          requestMimeType: mimeType,
+          requestFilename: `speech.${fileExtension}`
+        });
         throw new Error(`OpenAI API error ${response.status}: ${errorBody}`);
       }
 
@@ -69,12 +132,21 @@ export const openaiClient = {
         throw new Error('No transcription text returned from OpenAI');
       }
 
-      logger.info(`[transcribeAudio] Transcription successful: "${result.text}"`);
+      logger.info('[transcribeAudio] Transcription successful', {
+        text: result.text,
+        textLength: result.text.length
+      });
+      
       return result.text;
 
     } catch (error) {
-      logger.error('[transcribeAudio] Error during processing:', (error as Error).message);
-      logger.error('[transcribeAudio] Stack trace:', (error as Error).stack);
+      logger.error('[transcribeAudio] Error during processing', {
+        error: (error as Error).message,
+        stack: (error as Error).stack,
+        bufferSize: audioBuffer.length,
+        mimeType: mimeType,
+        tempFilePath: tempFilePath
+      });
       throw error;
 
     } finally {
@@ -82,9 +154,12 @@ export const openaiClient = {
       if (existsSync(tempFilePath)) {
         try {
           unlinkSync(tempFilePath);
-          logger.info(`[transcribeAudio] Cleaned up temporary file: ${tempFilePath}`);
+          logger.debug('[transcribeAudio] Cleaned up temporary file:', tempFilePath);
         } catch (cleanupError) {
-          logger.warn(`[transcribeAudio] Failed to cleanup temporary file: ${(cleanupError as Error).message}`);
+          logger.warn('[transcribeAudio] Failed to cleanup temporary file', {
+            path: tempFilePath,
+            error: (cleanupError as Error).message
+          });
         }
       }
     }
@@ -92,6 +167,8 @@ export const openaiClient = {
 
   async textToSpeech(text: string): Promise<Buffer> {
     try {
+      logger.info('[textToSpeech] Generating speech', { textLength: text.length });
+      
       const response = await fetch(`https://api.openai.com/v1/audio/speech`, {
         method: 'POST',
         headers: {
@@ -108,22 +185,33 @@ export const openaiClient = {
 
       if (!response.ok) {
         const errorText = await response.text();
-        logger.error(`[textToSpeech] OpenAI API error ${response.status}: ${errorText}`);
+        logger.error('[textToSpeech] OpenAI API error', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText
+        });
         throw new Error(`Failed to generate speech: ${errorText}`);
       }
 
       const buffer = Buffer.from(await response.arrayBuffer());
-      logger.info(`[textToSpeech] Generated ${buffer.length} bytes of audio data`);
+      logger.info('[textToSpeech] Speech generated successfully', {
+        audioSize: buffer.length
+      });
+      
       return buffer;
     } catch (error) {
-      logger.error('[textToSpeech] Error occurred during processing:', (error as Error).message);
-      logger.error('[textToSpeech] Stack trace:', (error as Error).stack);
+      logger.error('[textToSpeech] Error occurred during processing', {
+        error: (error as Error).message,
+        stack: (error as Error).stack
+      });
       return Buffer.from('');
     }
   },
 
   async generateResponse(prompt: string): Promise<string> {
     try {
+      logger.info('[generateResponse] Generating response', { promptLength: prompt.length });
+      
       const completion = await fetch(`https://api.openai.com/v1/chat/completions`, {
         method: 'POST',
         headers: {
@@ -148,17 +236,27 @@ export const openaiClient = {
 
       if (!completion.ok) {
         const errorText = await completion.text();
-        logger.error(`[generateResponse] OpenAI API error ${completion.status}: ${errorText}`);
+        logger.error('[generateResponse] OpenAI API error', {
+          status: completion.status,
+          statusText: completion.statusText,
+          body: errorText
+        });
         throw new Error(`Failed to generate response: ${errorText}`);
       }
 
       const result = await completion.json() as any;
       const message = result.choices[0]?.message?.content?.trim() || "";
-      logger.info('[generateResponse] Generated message:', message);
+      
+      logger.info('[generateResponse] Response generated successfully', {
+        responseLength: message.length
+      });
+      
       return message;
     } catch (error) {
-      logger.error('[generateResponse] Error occurred during processing:', (error as Error).message);
-      logger.error('[generateResponse] Stack trace:', (error as Error).stack);
+      logger.error('[generateResponse] Error occurred during processing', {
+        error: (error as Error).message,
+        stack: (error as Error).stack
+      });
       return "Sorry, I couldn't generate a response.";
     }
   }
