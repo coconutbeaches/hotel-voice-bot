@@ -13,6 +13,7 @@ import whatsappRouter from './routes/whatsapp.js';
 import { setupWaha } from './scripts/setupWaha.js';
 import swaggerSpec from './swagger.js';
 import { logger } from './utils/logger.js';
+import { verifyFFmpegInstallation } from './utils/ffmpegCheck.js';
 
 console.log('=== Server Startup Debug ===');
 console.log('Starting server initialization...');
@@ -21,6 +22,9 @@ const app: express.Application = express();
 const PORT = Number(process.env.PORT) || 8080;
 
 console.log(`PORT configured as: ${PORT}`);
+
+// Verify ffmpeg is available for Safari/iOS audio conversion
+verifyFFmpegInstallation();
 
 // Middleware
 app.use(helmet());

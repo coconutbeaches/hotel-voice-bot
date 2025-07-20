@@ -26,9 +26,8 @@ RUN pnpm run build
 # Production stage
 FROM node:18-alpine AS production
 
-# Install pnpm, curl, and ffmpeg for audio conversion
-RUN npm install -g pnpm && \
-    apk add --no-cache curl ffmpeg
+# Install pnpm and curl
+RUN npm install -g pnpm && apk add --no-cache curl
 
 # Create app directory
 WORKDIR /app
