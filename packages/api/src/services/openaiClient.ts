@@ -12,6 +12,9 @@ if (!process.env.OPENAI_API_KEY) {
 
 interface OpenAITranscriptionResult {
   text: string;
+  language?: string;
+  words?: Array<{ word: string; start: number; end: number }>;
+  // ...other Whisper fields if needed
 }
 
 export const openaiClient = {
@@ -33,14 +36,14 @@ export const openaiClient = {
     writeFileSync(origPath, audioBuffer);
     let finalPath = origPath;
     let finalMime = mimeType;
-    // Safari/iOS (audio/mp4) automatic ffmpeg conversion
-    if (fileExtension === 'mp4' || mimeType === 'audio/mp4') {
-      const wavPath = origPath.replace(/\.mp4$/, '.wav');
+    // Convert webm/wav/mp4 to wav for maximum Safari/iOS compatibility
+    if (fileExtension === 'mp4' || mimeType === 'audio/mp4' || fileExtension === 'webm' || mimeType === 'audio/webm' || fileExtension === 'wav' || mimeType === 'audio/wav') {
+      const wavPath = origPath.replace(/\.(mp4|webm|wav)$/, '.wav');
       try {
         execSync(`ffmpeg -y -i "${origPath}" -ar 16000 -acodec pcm_s16le -ac 1 "${wavPath}"`);
         finalPath = wavPath;
         finalMime = 'audio/wav';
-        logger.info('[transcribeAudio] Converted mp4 to wav via ffmpeg', { origPath, finalPath });
+        logger.info('[transcribeAudio] Converted input to wav via ffmpeg', { origPath, finalPath });
       } catch (err) {
         logger.error('[transcribeAudio] ffmpeg conversion failed', err);
         throw err;
@@ -48,9 +51,18 @@ export const openaiClient = {
     }
     // Debug logging
     const debugBytes = audioBuffer.slice(0, 100).toString('base64');
+
+    // Start timer for Whisper latency tracking
+    const whisperStart = Date.now();
+
     logger.info('[transcribeAudio] Ready to upload', {
-      origPath, finalPath, origMime: mimeType, uploadMime: finalMime,
-      origSize: audioBuffer.length, debugBytes
+      uuid: randomId,
+      origPath,
+      finalPath,
+      origMime: mimeType,
+      uploadMime: finalMime,
+      origSize: audioBuffer.length,
+      debugBytes
     });
     // Whisper upload
     const form = new FormData();
@@ -61,27 +73,48 @@ export const openaiClient = {
     form.append('model', 'whisper-1');
     form.append('language', 'en');
     form.append('response_format', 'json');
+    form.append('timestamp_granularities', JSON.stringify(['word']));
     const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
       headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, ...form.getHeaders() },
       body: form,
     });
+    const whisperLatencyMs = Date.now() - whisperStart;
     const resultBody = await response.text();
+    let requestSuccess = true;
+    let errorMsg = undefined;
+
     if (!response.ok) {
-      logger.error('[transcribeAudio] Whisper error', { status: response.status, body: resultBody });
-      throw new Error(`Whisper API error: ${resultBody}`);
+      requestSuccess = false;
+      errorMsg = `Whisper API error: ${resultBody}`;
+      logger.error('[transcribeAudio] Whisper error', { uuid: randomId, status: response.status, body: resultBody });
     }
     let result: OpenAITranscriptionResult;
     try {
       result = JSON.parse(resultBody);
     } catch (err) {
-      logger.error('[transcribeAudio] Non-JSON response', { resultBody });
-      throw new Error('Whisper non-JSON response: ' + resultBody);
+      requestSuccess = false;
+      errorMsg = 'Whisper non-JSON response: ' + resultBody;
+      logger.error('[transcribeAudio] Non-JSON response', { uuid: randomId, resultBody });
+      throw new Error(errorMsg);
     }
+
+    // Success/failure log for analytics SQL + downstream views
+    logger.info('[whisper-transcription-log]', {
+      uuid: randomId,
+      userId: (typeof global !== 'undefined' && global.userId) || null, // Attach user if available
+      fileType: finalMime,
+      fileSize: audioBuffer.length,
+      conversionTimeMs: Date.now() - timestamp, // inclusive of prep & ffmpeg
+      whisperLatencyMs,
+      success: requestSuccess,
+      error: errorMsg,
+      created_at: new Date().toISOString()
+    });
     // Cleanup
     if (existsSync(origPath)) unlinkSync(origPath);
     if (finalPath !== origPath && existsSync(finalPath)) unlinkSync(finalPath);
-    return result.text ?? '';
+    return result;
   },
 
   // ... (leave other methods unchanged) ...

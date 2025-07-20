@@ -1,6 +1,6 @@
 import axios from 'axios';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import RecordRTC from 'recordrtc';
+// import RecordRTC from 'recordrtc';
 import io, { Socket } from 'socket.io-client';
 import './VoiceWidget.scss';
 
@@ -63,11 +63,12 @@ const VoiceWidget: React.FC<VoiceWidgetProps> = ({
   const [textInput, setTextInput] = useState('');
 
   const socketRef = useRef<Socket | null>(null);
-  const recorderRef = useRef<RecordRTC | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const wakeWordRecognizerRef = useRef<any>(null);
-  const isInterruptedRef = useRef(false);
+const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+const mediaStreamRef = useRef<MediaStream | null>(null);
+const recordedChunksRef = useRef<Blob[]>([]);
+const audioRef = useRef<HTMLAudioElement | null>(null);
+const wakeWordRecognizerRef = useRef<any>(null);
+const isInterruptedRef = useRef(false);
 
   // Initialize WebSocket connection
   useEffect(() => {
@@ -135,72 +136,72 @@ const VoiceWidget: React.FC<VoiceWidgetProps> = ({
     );
   }, [finalConfig.enableWakeWord, finalConfig.wakeWord]);
 
-  const startRecording = useCallback(async () => {
+const startRecording = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
-
-      const recorder = RecordRTC(stream, {
-        type: 'audio',
-        mimeType: 'audio/webm',
-        recorderType: RecordRTC.StereoAudioRecorder,
-        timeSlice: 1000, // Send chunks every second
-        ondataavailable: async (blob: Blob) => {
-          if (socketRef.current?.connected && !fallbackToText) {
-            // Send audio chunk for streaming transcription
-            const reader = new FileReader();
-            reader.onload = () => {
-              const base64 = reader.result?.toString().split(',')[1];
-              socketRef.current?.emit('audio-chunk', {
-                audio: base64,
-                sessionId,
-                language: 'auto', // Auto-detect language
-              });
-            };
-            reader.readAsDataURL(blob);
-          }
-        },
+      mediaStreamRef.current = stream;
+      recordedChunksRef.current = [];
+      const mediaRecorder = new window.MediaRecorder(stream, {
+        mimeType: 'audio/webm;codecs=opus'
       });
 
-      recorder.startRecording();
-      recorderRef.current = recorder;
-      setIsListening(true);
-      finalConfig.onSessionStart?.();
+      mediaRecorder.ondataavailable = async (e) => {
+        if (e.data && e.data.size > 0) {
+          recordedChunksRef.current.push(e.data);
+          const arrayBuffer = await e.data.arrayBuffer();
+          if (socketRef.current?.connected && !fallbackToText) {
+            socketRef.current.emit('audio-chunk', {
+              audio: arrayBuffer,
+              mimeType: e.data.type,
+              isLast: false,
+              sessionId,
+              language: 'auto',
+            });
+          }
+        }
+      };
+
+      mediaRecorder.onstart = () => {
+        setIsListening(true);
+        finalConfig.onSessionStart?.();
+      };
+
+      mediaRecorderRef.current = mediaRecorder;
+      mediaRecorder.start(1000); // 1s chunks
     } catch (error) {
       console.error('Error starting recording:', error);
       finalConfig.onError?.(error as Error);
     }
   }, [sessionId, fallbackToText, finalConfig]);
 
-  const stopRecording = useCallback(() => {
-    if (recorderRef.current && recorderRef.current.state === 'recording') {
-      recorderRef.current.stopRecording(async () => {
-        const blob = recorderRef.current?.getBlob();
-        if (blob && socketRef.current?.connected) {
+const stopRecording = useCallback(() => {
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state === 'recording') {
+      recorder.onstop = async () => {
+        const chunks = recordedChunksRef.current;
+        const blob = new Blob(chunks, { type: 'audio/webm' });
+        if (socketRef.current?.connected) {
           setIsProcessing(true);
-
-          // Send final audio for processing
-          const reader = new FileReader();
-          reader.onload = () => {
-            const base64 = reader.result?.toString().split(',')[1];
-            socketRef.current?.emit('process-audio', {
-              audio: base64,
-              sessionId,
-              language: 'auto',
-            });
-          };
-          reader.readAsDataURL(blob);
+          // Send final assembled chunk with isLast = true
+          const arrayBuffer = await blob.arrayBuffer();
+          socketRef.current.emit('audio-chunk', {
+            audio: arrayBuffer,
+            mimeType: blob.type,
+            isLast: true,
+            sessionId,
+            language: 'auto',
+          });
         }
-
-        // Cleanup
-        if (streamRef.current) {
-          streamRef.current.getTracks().forEach(track => track.stop());
+        // Cleanup tracks and refs
+        if (mediaStreamRef.current) {
+          mediaStreamRef.current.getTracks().forEach(track => track.stop());
         }
-        recorderRef.current = null;
+        mediaRecorderRef.current = null;
         setIsListening(false);
         setIsProcessing(false);
         finalConfig.onSessionEnd?.();
-      });
+      };
+      recorder.stop();
     }
   }, [sessionId, finalConfig]);
 

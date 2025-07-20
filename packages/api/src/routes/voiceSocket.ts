@@ -82,14 +82,14 @@ export function setupVoiceSocket(server: HTTPServer) {
           logger.debug('[voice-data] Debug file saved:', debugPath);
         }
 
-        // Process audio with Whisper
-        const transcript = await openaiClient.transcribeAudio(audioBuffer);
-        if (!transcript) {
+// Process audio with Whisper
+        const transcriptResult = await openaiClient.transcribeAudio(audioBuffer);
+        if (!transcriptResult) {
           throw new Error('Failed to transcribe audio');
         }
 
         // Emit transcription result
-        socket.emit('transcription', { text: transcript });
+        socket.emit('transcription', transcriptResult);
 
         // Generate AI response
         const prompt = `You are Coconut, a friendly AI assistant for Coconut Beach Hotel. 
@@ -268,14 +268,14 @@ Keep responses concise for voice. User said: "${transcript}"`;
               );
             }
 
-            // Process with Whisper
-            const transcript = await openaiClient.transcribeAudio(finalBuffer);
-            if (!transcript) {
+// Process with Whisper
+            const transcriptResult = await openaiClient.transcribeAudio(finalBuffer);
+            if (!transcriptResult) {
               throw new Error('Failed to transcribe assembled audio');
             }
 
             // Emit transcription result
-            socket.emit('transcription', { text: transcript });
+            socket.emit('transcription', transcriptResult);
 
             // Generate AI response
             const prompt = `You are Coconut, a friendly AI assistant for Coconut Beach Hotel. 
@@ -342,14 +342,14 @@ Keep responses concise for voice. User said: "${transcript}"`;
             size: audioBuffer.length,
           });
 
-          // Process with updated transcription
-          const transcript = await openaiClient.transcribeAudio(audioBuffer);
-          if (!transcript) {
+// Process with updated transcription
+          const transcriptResult = await openaiClient.transcribeAudio(audioBuffer);
+          if (!transcriptResult) {
             throw new Error('Failed to transcribe audio');
           }
 
           // Emit transcription
-          socket.emit('transcription', { text: transcript, isFinal: true });
+          socket.emit('transcription', { ...transcriptResult, isFinal: true });
 
           // Generate response
           const prompt = `You are Coconut, a friendly AI assistant for Coconut Beach Hotel. 

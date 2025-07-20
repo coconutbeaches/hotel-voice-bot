@@ -24,3 +24,31 @@ export const logger = winston.createLogger({
   defaultMeta: { service: 'hotel-voice-bot-api' },
   transports,
 });
+
+// Log to Logtail or Datadog via HTTP/JSON if configured
+if (process.env.LOGTAIL_TOKEN) {
+  // Send logs to Logtail as structured JSON
+  logger.add(
+    new winston.transports.Http({
+      host: 'in.logtail.com',
+      path: '/?source_token=' + process.env.LOGTAIL_TOKEN,
+      ssl: true,
+      format: winston.format.json(),
+    })
+  );
+}
+if (process.env.DATADOG_LOGS_API_KEY) {
+  // Send logs to Datadog as structured JSON
+  logger.add(
+    new winston.transports.Http({
+      host: 'http-intake.logs.datadoghq.com',
+      path: '/v1/input/' + process.env.DATADOG_LOGS_API_KEY,
+      ssl: true,
+      format: winston.format.json(),
+      headers: {
+        'DD-API-KEY': process.env.DATADOG_LOGS_API_KEY,
+        'Content-Type': 'application/json'
+      }
+    })
+  );
+}

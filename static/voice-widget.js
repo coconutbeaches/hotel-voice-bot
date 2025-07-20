@@ -76,27 +76,69 @@ class VoiceWidget extends HTMLElement {
       // Setup MediaRecorder with explicit MIME type for Whisper compatibility
       let options = { mimeType: 'audio/webm;codecs=opus' };
 
-      // Safari detection - switch to WebM for better Whisper compatibility
-      const isSafari = /^((?!chrome|android).)*safari/i.test(
-        navigator.userAgent
-      );
-      if (isSafari) {
-        console.log(
-          '🎙️ Safari detected – using audio/webm for Whisper compatibility'
-        );
-        options.mimeType = 'audio/webm';
-      } else {
-        // Check if the preferred MIME type is supported
-        if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-          console.warn(
-            '🚨 Preferred MIME type not supported, falling back to basic webm'
-          );
-          options.mimeType = 'audio/webm';
+      // Detect browser/userAgent for iOS Safari limitation handling
+      const ua = navigator.userAgent || navigator.vendor || window.opera;
+      const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+      const isSafari = /^((?!chrome|android).)*safari/i.test(ua);
+
+      // Start with default option
+      let pickedMime = options.mimeType;
+
+      // iOS/Safari needs special handling to maximize support
+      if (isIOS || isSafari) {
+        // Only allow what's supported.
+        const tryTypes = [
+          'audio/webm;codecs=opus',
+          'audio/webm',
+          'audio/mp4',
+          'audio/mp4;codecs=mp4a.40.2', // fMP4, if eventually supported
+          'audio/ogg',
+        ];
+        pickedMime = tryTypes.find(type => window.MediaRecorder && MediaRecorder.isTypeSupported(type)) || '';
+        options.mimeType = pickedMime;
+        if (!pickedMime) {
+          this.state.error = 'Audio recording not supported on your device/browser. Please upgrade iOS, Safari, or use Chrome if possible.';
+          this.state.status = 'Recording not supported';
+          this.state.recording = false;
+          this.render();
+          stream.getTracks().forEach(track => track.stop());
+          return;
         }
+        console.log('🎙️ iOS/Safari detected – using', pickedMime);
+      } else {
+        // Not Safari/iOS: Try preferred, then fallback
+        if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+          pickedMime = 'audio/webm';
+          if (!MediaRecorder.isTypeSupported(pickedMime)) {
+            pickedMime = 'audio/ogg';
+          }
+          options.mimeType = pickedMime;
+        }
+        console.log('🎙️ Using picked MIME type:', pickedMime);
       }
 
-      console.log('🎤 Using MediaRecorder MIME type:', options.mimeType);
-      this.mediaRecorder = new MediaRecorder(stream, options);
+      // Global catch for unsupported
+      if (!options.mimeType || !MediaRecorder.isTypeSupported(options.mimeType)) {
+        this.state.error = 'Sorry, your browser/device does not support audio recording.';
+        this.state.status = 'Recording not supported';
+        this.state.recording = false;
+        this.render();
+        stream.getTracks().forEach(track => track.stop());
+        return;
+      }
+
+      console.log('🎤 Using MediaRecorder MIME type:', options.mimeType, '(final)');
+      try {
+        this.mediaRecorder = new MediaRecorder(stream, options);
+      } catch (e) {
+        console.error('MediaRecorder init failed:', e);
+        this.state.error = 'Unable to start audio recording: ' + e.message;
+        this.state.status = 'Recording not supported';
+        this.state.recording = false;
+        this.render();
+        stream.getTracks().forEach(track => track.stop());
+        return;
+      }
 
       // Connect WebSocket - Use Fly.io backend for real-time voice processing
       // Production: wss://coconut-voice-socket.fly.dev/voice
